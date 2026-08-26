@@ -2,15 +2,15 @@
 
 ## Overview
 
-Este sistema provee un backend para la gestión de tipos de cuentas con operaciones CRUD, autenticación (login), registro de usuarios, gestión de miembros, soporte multi-tenant y multi-rol, utilizando AWS DynamoDB con un diseño de tabla única (single table design).
+Este sistema provee un backend API (REST) en Python para la gestión de tipos de cuentas con operaciones CRUD, autenticación (login), registro de usuarios, gestión de miembros, soporte multi-tenant y multi-rol, utilizando AWS DynamoDB con un diseño de tabla única (single table design). **Este es un servicio backend puro — el frontend se desarrolla como un proyecto separado.**
 
 El modelo multi-tenant garantiza aislamiento de datos entre organizaciones (instituciones). Cada tenant opera de forma independiente con sus propios tipos de cuenta, miembros y usuarios. El sistema de roles permite control granular de permisos dentro de cada tenant, soportando roles como admin, manager y viewer.
 
-Los miembros de una institución se clasifican por tipo de cuenta: **Socio** (asociado), **Usuario** (usuario genérico) y **Profesional** (entrenador/profesional). Cada miembro tiene un accountType asignado y roles dentro del tenant. El registro puede ser por auto-registro (el usuario se registra solo) o por invitación del admin.
+Los miembros de una institución se clasifican por tipo de cuenta: **Socio** (asociado), **Usuario** (usuario genérico) y **Profesional** (entrenador/profesional). Cada miembro tiene un account_type asignado y roles dentro del tenant. El registro puede ser por auto-registro (el usuario se registra solo) o por invitación del admin.
 
 La arquitectura serverless con DynamoDB single table design optimiza costos y latencia al consolidar todas las entidades en una sola tabla con patrones de acceso bien definidos.
 
-**El backend está estructurado siguiendo Clean Architecture**, garantizando separación de responsabilidades, testabilidad y flexibilidad para cambiar componentes de infraestructura sin afectar la lógica de negocio.
+**El backend está estructurado siguiendo Clean Architecture con Python**, garantizando separación de responsabilidades, testabilidad y flexibilidad para cambiar componentes de infraestructura sin afectar la lógica de negocio.
 
 ## Architecture
 
@@ -24,8 +24,8 @@ graph TB
         DDB[(DynamoDB)]
         APIGW[API Gateway]
         SM[Secrets Manager]
-        BCR[bcrypt]
-        JWTLIB[jsonwebtoken]
+        COG[AWS Cognito]
+        PWRT[Lambda Powertools]
     end
     
     subgraph "Interface Adapters Layer"
@@ -33,7 +33,7 @@ graph TB
         MW[Middleware - TenantGuard/RoleGuard]
         RM[Request/Response Mappers]
         REPO_IMPL[Repository Implementations]
-        AUTH_IMPL[Auth Service Implementation]
+        AUTH_IMPL[Cognito Service Implementation]
     end
     
     subgraph "Application Layer (Use Cases)"
@@ -45,8 +45,8 @@ graph TB
     end
     
     subgraph "Domain Layer (Innermost)"
-        ENT[Entities: User, Tenant, Member, AccountType, Session]
-        VO[Value Objects: Email, Password, TenantId]
+        ENT[Entities: User, Tenant, Member, account_type, Session]
+        VO[Value Objects: Email, Password, tenant_id]
         DR[Domain Rules & Validation]
         DE[Domain Errors]
         EV[Domain Events]
@@ -98,13 +98,13 @@ graph LR
 
 **Capas:**
 
-1. **Domain Layer (Entities)** — Capa más interna. Entidades de negocio puras y reglas de dominio. Sin dependencias de frameworks. Contiene: User, Tenant, Member, AccountType, Session con su lógica de validación y reglas de negocio.
+1. **Domain Layer (Entities)** — Capa más interna. Entidades de negocio puras y reglas de dominio. Sin dependencias de frameworks. Contiene: User, Tenant, Member, account_type, Session con su lógica de validación y reglas de negocio.
 
 2. **Application Layer (Use Cases)** — Lógica de negocio específica de la aplicación. Contiene: LoginUseCase, RegisterUseCase, AccountTypeUseCases, MemberUseCases. Cada use case define DTOs de entrada/salida y orquesta las entidades de dominio. Depende únicamente del Domain Layer y de interfaces de puertos (ports).
 
 3. **Interface Adapters Layer (Controllers/Presenters/Gateways)** — Convierte datos entre use cases y agentes externos. Contiene: Lambda handlers (controllers), mappers de request/response, interfaces de repositorio (ports).
 
-4. **Infrastructure Layer (Frameworks & Drivers)** — Capa más externa. Concerns externos. Contiene: Implementaciones de repositorio DynamoDB, implementación del servicio JWT, implementación bcrypt, configuración de API Gateway.
+4. **Infrastructure Layer (Frameworks & Drivers)** — Capa más externa. Concerns externos. Contiene: Implementaciones de repositorio DynamoDB, implementación del servicio JWT, implementación Cognito, configuración de API Gateway.
 
 ### Request Flow (Clean Architecture)
 
@@ -143,7 +143,7 @@ sequenceDiagram
 
 ```mermaid
 graph TD
-    Client[Client Application] --> APIGW[API Gateway]
+    Client[HTTP Client - Frontend is separate project] --> APIGW[API Gateway]
     APIGW --> AuthLambda[Auth Lambda]
     APIGW --> RegisterLambda[Register Lambda]
     APIGW --> CRUDLambda[CRUD Lambda]
@@ -165,7 +165,7 @@ graph TD
     
     subgraph "DynamoDB Single Table"
         DDB --> Users[Users Partition]
-        DDB --> AccountTypes[Account Types Partition]
+        DDB --> account_types[Account Types Partition]
         DDB --> Members[Members Partition]
         DDB --> Roles[Roles Partition]
         DDB --> Sessions[Sessions Partition]
@@ -189,112 +189,141 @@ graph TD
 ```
 src/
 ├── domain/
+│   ├── __init__.py
 │   ├── entities/              # Pure business entities
-│   │   ├── user.ts
-│   │   ├── tenant.ts
-│   │   ├── member.ts
-│   │   ├── accountType.ts
-│   │   └── session.ts
-│   ├── valueObjects/         # Immutable value types with validation
-│   │   ├── email.ts
-│   │   ├── password.ts
-│   │   ├── tenantId.ts
-│   │   ├── memberId.ts
-│   │   ├── accountTypeId.ts
-│   │   └── roleName.ts
+│   │   ├── __init__.py
+│   │   ├── user.py
+│   │   ├── tenant.py
+│   │   ├── member.py
+│   │   ├── account_type.py
+│   │   └── session.py
+│   ├── value_objects/         # Immutable value types with validation
+│   │   ├── __init__.py
+│   │   ├── email.py
+│   │   ├── password.py
+│   │   ├── tenant_id.py
+│   │   ├── member_id.py
+│   │   ├── account_type_id.py
+│   │   └── role_name.py
 │   ├── errors/                # Domain-specific errors
-│   │   ├── domainError.ts
-│   │   ├── validationError.ts
-│   │   ├── invalidCredentialsError.ts
-│   │   └── tenantNotFoundError.ts
+│   │   ├── __init__.py
+│   │   ├── domain_error.py
+│   │   ├── validation_error.py
+│   │   ├── invalid_credentials_error.py
+│   │   └── tenant_not_found_error.py
 │   └── events/                # Domain events (optional, for future use)
-│       ├── memberCreated.ts
-│       ├── memberDeactivated.ts
-│       └── accountTypeDeleted.ts
+│       ├── __init__.py
+│       ├── member_created.py
+│       ├── member_deactivated.py
+│       └── account_type_deleted.py
 ├── application/
-│   ├── useCases/             # Application-specific business logic
+│   ├── __init__.py
+│   ├── use_cases/             # Application-specific business logic
+│   │   ├── __init__.py
 │   │   ├── auth/
-│   │   │   ├── loginUseCase.ts
-│   │   │   ├── refreshTokenUseCase.ts
-│   │   │   └── logoutUseCase.ts
+│   │   │   ├── __init__.py
+│   │   │   ├── login_use_case.py
+│   │   │   ├── refresh_token_use_case.py
+│   │   │   └── logout_use_case.py
 │   │   ├── registration/
-│   │   │   ├── registerUseCase.ts
-│   │   │   └── inviteUserUseCase.ts
-│   │   ├── accountType/
-│   │   │   ├── createAccountTypeUseCase.ts
-│   │   │   ├── listAccountTypesUseCase.ts
-│   │   │   ├── updateAccountTypeUseCase.ts
-│   │   │   └── deleteAccountTypeUseCase.ts
+│   │   │   ├── __init__.py
+│   │   │   ├── register_use_case.py
+│   │   │   └── invite_user_use_case.py
+│   │   ├── account_type/
+│   │   │   ├── __init__.py
+│   │   │   ├── create_account_type_use_case.py
+│   │   │   ├── list_account_types_use_case.py
+│   │   │   ├── update_account_type_use_case.py
+│   │   │   └── delete_account_type_use_case.py
 │   │   └── member/
-│   │       ├── createMemberUseCase.ts
-│   │       ├── listMembersUseCase.ts
-│   │       ├── updateMemberUseCase.ts
-│   │       ├── deactivateMemberUseCase.ts
-│   │       └── reactivateMemberUseCase.ts
-│   ├── dtos/                  # Input/Output DTOs for each use case
+│   │       ├── __init__.py
+│   │       ├── create_member_use_case.py
+│   │       ├── list_members_use_case.py
+│   │       ├── update_member_use_case.py
+│   │       ├── deactivate_member_use_case.py
+│   │       └── reactivate_member_use_case.py
+│   ├── dtos/                  # Input/Output DTOs (Pydantic models)
+│   │   ├── __init__.py
 │   │   ├── auth/
-│   │   │   ├── loginInputDTO.ts
-│   │   │   ├── loginOutputDTO.ts
-│   │   │   ├── registerInputDTO.ts
-│   │   │   └── registerOutputDTO.ts
-│   │   ├── accountType/
-│   │   │   ├── createAccountTypeInputDTO.ts
-│   │   │   ├── accountTypeOutputDTO.ts
-│   │   │   └── paginatedAccountTypesDTO.ts
+│   │   │   ├── __init__.py
+│   │   │   ├── login_input_dto.py
+│   │   │   ├── login_output_dto.py
+│   │   │   ├── register_input_dto.py
+│   │   │   └── register_output_dto.py
+│   │   ├── account_type/
+│   │   │   ├── __init__.py
+│   │   │   ├── create_account_type_input_dto.py
+│   │   │   ├── account_type_output_dto.py
+│   │   │   └── paginated_account_types_dto.py
 │   │   └── member/
-│   │       ├── createMemberInputDTO.ts
-│   │       ├── memberOutputDTO.ts
-│   │       └── paginatedMembersDTO.ts
-│   ├── ports/                 # Repository & service interfaces (abstractions)
-│   │   ├── iUserRepository.ts
-│   │   ├── iMemberRepository.ts
-│   │   ├── iAccountTypeRepository.ts
-│   │   ├── iSessionRepository.ts
-│   │   ├── iTenantRepository.ts
-│   │   └── iAuthService.ts
+│   │       ├── __init__.py
+│   │       ├── create_member_input_dto.py
+│   │       ├── member_output_dto.py
+│   │       └── paginated_members_dto.py
+│   ├── ports/                 # Repository & service interfaces (abstract base classes)
+│   │   ├── __init__.py
+│   │   ├── i_user_repository.py
+│   │   ├── i_member_repository.py
+│   │   ├── i_account_type_repository.py
+│   │   ├── i_cognito_service.py
+│   │   ├── i_tenant_repository.py
+│   │   └── i_cognito_service.py
 │   └── services/              # Application services that orchestrate use cases
-│       └── tenantContextService.ts
+│       ├── __init__.py
+│       └── tenant_context_service.py
 ├── infrastructure/
+│   ├── __init__.py
 │   ├── persistence/           # DynamoDB repository implementations
-│   │   ├── dynamoDBUserRepository.ts
-│   │   ├── dynamoDBMemberRepository.ts
-│   │   ├── dynamoDBAccountTypeRepository.ts
-│   │   ├── dynamoDBSessionRepository.ts
-│   │   ├── dynamoDBTenantRepository.ts
-│   │   └── dynamoDBClient.ts
+│   │   ├── __init__.py
+│   │   ├── dynamodb_user_repository.py
+│   │   ├── dynamodb_member_repository.py
+│   │   ├── dynamodb_account_type_repository.py
+│   │   ├── cognito_auth_service.py
+│   │   ├── dynamodb_tenant_repository.py
+│   │   └── dynamodb_client.py
 │   ├── auth/                  # External auth implementations
-│   │   ├── jwtAuthService.ts
-│   │   └── bcryptPasswordHasher.ts
+│   │   ├── __init__.py
+│   │   ├── cognito_auth_service.py
+│   │   └── cognito_auth_service.py
 │   ├── config/                # Environment & client configuration
-│   │   ├── environment.ts
-│   │   └── dynamoDBClient.ts
+│   │   ├── __init__.py
+│   │   ├── environment.py
+│   │   └── dynamodb_client.py
 │   └── mappers/               # Entity ↔ DynamoDB item mappers
-│       ├── userMapper.ts
-│       ├── memberMapper.ts
-│       ├── accountTypeMapper.ts
-│       └── sessionMapper.ts
+│       ├── __init__.py
+│       ├── user_mapper.py
+│       ├── member_mapper.py
+│       ├── account_type_mapper.py
+│       └── 
 └── interfaces/
+    ├── __init__.py
     ├── http/
+    │   ├── __init__.py
     │   ├── controllers/       # Lambda handlers (entry points)
-    │   │   ├── authController.ts
-    │   │   ├── registrationController.ts
-    │   │   ├── accountTypeController.ts
-    │   │   └── memberController.ts
+    │   │   ├── __init__.py
+    │   │   ├── auth_controller.py
+    │   │   ├── registration_controller.py
+    │   │   ├── account_type_controller.py
+    │   │   └── member_controller.py
     │   ├── middleware/        # Cross-cutting concerns
-    │   │   ├── tenantGuardMiddleware.ts
-    │   │   ├── roleGuardMiddleware.ts
-    │   │   └── validationMiddleware.ts
+    │   │   ├── __init__.py
+    │   │   ├── tenant_guard_middleware.py
+    │   │   ├── role_guard_middleware.py
+    │   │   └── validation_middleware.py
     │   ├── routes/            # API route definitions
-    │   │   └── routes.ts
-    │   └── dtos/              # Request/Response schemas (HTTP-specific)
-    │       ├── loginRequest.ts
-    │       ├── registerRequest.ts
-    │       ├── createAccountTypeRequest.ts
-    │       ├── createMemberRequest.ts
-    │       └── apiResponse.ts
+    │   │   ├── __init__.py
+    │   │   └── routes.py
+    │   └── dtos/              # Request/Response schemas (HTTP-specific, Pydantic)
+    │       ├── __init__.py
+    │       ├── login_request.py
+    │       ├── register_request.py
+    │       ├── create_account_type_request.py
+    │       ├── create_member_request.py
+    │       └── api_response.py
     └── shared/                # Shared interface utilities
-        ├── errorHandler.ts
-        └── responseBuilder.ts
+        ├── __init__.py
+        ├── error_handler.py
+        └── response_builder.py
 ```
 
 ## Clean Architecture Rules
@@ -303,32 +332,33 @@ Las siguientes reglas son inmutables en este proyecto:
 
 1. **Inner layers NEVER import from outer layers** — El dominio no conoce DynamoDB, JWT, ni Lambda. Los use cases no conocen HTTP ni la estructura de DynamoDB items.
 
-2. **Domain entities have no framework annotations/decorators** — Las entidades son clases TypeScript puras con lógica de validación propia. No tienen decoradores de ORM, serialización, ni frameworks.
+2. **Domain entities have no framework annotations/decorators** — Las entidades son clases Python puras (dataclasses o Pydantic models) con lógica de validación propia. No tienen decoradores de ORM, serialización de frameworks externos, ni dependencias de infraestructura.
 
-3. **Use Cases define their own input/output DTOs** — No se filtran estructuras HTTP (request body) ni estructuras DynamoDB (items) a los use cases. Los DTOs son contratos puros de la capa de aplicación.
+3. **Use Cases define their own input/output DTOs** — No se filtran estructuras HTTP (request body) ni estructuras DynamoDB (items) a los use cases. Los DTOs son contratos puros de la capa de aplicación (Pydantic models).
 
-4. **Dependency Inversion Principle** — Los módulos de alto nivel (use cases) no dependen de módulos de bajo nivel (DynamoDB). Ambos dependen de abstracciones (port interfaces como `IUserRepository`).
+4. **Dependency Inversion Principle** — Los módulos de alto nivel (use cases) no dependen de módulos de bajo nivel (DynamoDB). Ambos dependen de abstracciones (port interfaces como `IUserRepository` definidas como Abstract Base Classes).
 
 5. **El DynamoDB single table design es un concern de infraestructura** — Está completamente oculto detrás de las interfaces de repositorio. Los use cases solo conocen métodos como `find_by_email()`, `save()`, `find_by_tenant_and_account_type()`.
 
 6. **Cada capa tiene su propio modelo de error** — Domain tiene `DomainError`, Application tiene errores de use case, Interface Adapters mapea a HTTP status codes.
 
-7. **Testing sin infraestructura** — Los use cases se testean con mocks de los ports. El dominio se testea sin mocks (lógica pura). Solo los tests de integración necesitan DynamoDB.
+7. **Testing sin infraestructura** — Los use cases se testean con mocks de los ports (usando unittest.mock o pytest fixtures). El dominio se testea sin mocks (lógica pura). Solo los tests de integración necesitan DynamoDB (moto).
 
 
 ## Naming Conventions
 
 | Element | Convention | Example |
 |---------|-----------|---------|
-| Variables | camelCase | userId, tenantId, accountType, passwordHash |
-| Functions/Methods | snake_case | find_by_email, hash_password, create_session |
+| Variables | snake_case | user_id, tenant_id, account_type, password_hash |
+| Functions/Methods | snake_case | find_by_email, sign_up, create_session |
 | Classes/Interfaces | PascalCase | IUserRepository, LoginUseCase, Member |
-| Folders/Files | camelCase | useCases/, valueObjects/, loginUseCase.ts |
+| Folders/Files | snake_case | use_cases/, value_objects/, login_use_case.py |
+| Constants | UPPER_SNAKE_CASE | SALT_ROUNDS, TOKEN_EXPIRY, ROLES |
 ## Dependency Injection
 
 ### Estrategia de Inyección
 
-Se utiliza un patrón de composición simple (Composition Root) en cada Lambda handler para conectar las capas:
+Se utiliza un patrón de composición simple (Composition Root) en cada Lambda handler para conectar las capas. En Python se implementa con constructor injection y funciones factory (o la librería `dependency-injector` si se requiere más estructura):
 
 ```pascal
 // Composition Root - Se ejecuta una vez por Lambda cold start
@@ -337,36 +367,36 @@ PROCEDURE create_dependencies()
 
 BEGIN
   // Infrastructure Layer - concrete implementations
-  dynamoClient ← create_dynamodb_client(ENV.TABLE_NAME, ENV.REGION)
+  dynamo_client ← create_dynamodb_client(ENV.TABLE_NAME, ENV.REGION)
   
   // Repository implementations (implement port interfaces)
-  userRepository ← NEW DynamoDBUserRepository(dynamoClient)
-  memberRepository ← NEW DynamoDBMemberRepository(dynamoClient)
-  accountTypeRepository ← NEW DynamoDBAccountTypeRepository(dynamoClient)
-  sessionRepository ← NEW DynamoDBSessionRepository(dynamoClient)
-  tenantRepository ← NEW DynamoDBTenantRepository(dynamoClient)
+  user_repository ← NEW DynamoDBUserRepository(dynamo_client)
+  member_repository ← NEW DynamoDBMemberRepository(dynamo_client)
+  account_type_repository ← NEW DynamoDBAccountTypeRepository(dynamo_client)
+  session_repository ← NEW DynamoDBSessionRepository(dynamo_client)
+  tenant_repository ← NEW DynamoDBTenantRepository(dynamo_client)
   
   // Service implementations (implement port interfaces)
-  authService ← NEW JwtAuthService(ENV.JWT_SECRET, ENV.TOKEN_EXPIRY)
-  passwordHasher ← NEW BcryptPasswordHasher(ENV.SALT_ROUNDS)
+  auth_service ← NEW CognitoAuthService(ENV.JWT_SECRET, ENV.TOKEN_EXPIRY)
+  password_hasher ← NEW CognitoAuthService(ENV.SALT_ROUNDS)
   
   // Application Layer - Use Cases (receive ports via constructor injection)
-  loginUseCase ← NEW LoginUseCase(userRepository, sessionRepository, authService, passwordHasher)
-  registerUseCase ← NEW RegisterUseCase(userRepository, memberRepository, tenantRepository, accountTypeRepository, sessionRepository, authService, passwordHasher)
-  createAccountTypeUseCase ← NEW CreateAccountTypeUseCase(accountTypeRepository, tenantRepository)
-  listAccountTypesUseCase ← NEW ListAccountTypesUseCase(accountTypeRepository)
-  updateAccountTypeUseCase ← NEW UpdateAccountTypeUseCase(accountTypeRepository)
-  deleteAccountTypeUseCase ← NEW DeleteAccountTypeUseCase(accountTypeRepository, memberRepository)
-  createMemberUseCase ← NEW CreateMemberUseCase(userRepository, memberRepository, accountTypeRepository, passwordHasher)
-  listMembersUseCase ← NEW ListMembersUseCase(memberRepository)
-  updateMemberUseCase ← NEW UpdateMemberUseCase(memberRepository, accountTypeRepository)
-  deactivateMemberUseCase ← NEW DeactivateMemberUseCase(memberRepository, sessionRepository)
+  login_use_case ← NEW LoginUseCase(user_repository, session_repository, auth_service, password_hasher)
+  register_use_case ← NEW RegisterUseCase(user_repository, member_repository, tenant_repository, account_type_repository, session_repository, auth_service, password_hasher)
+  create_account_type_use_case ← NEW CreateAccountTypeUseCase(account_type_repository, tenant_repository)
+  list_account_types_use_case ← NEW ListAccountTypesUseCase(account_type_repository)
+  update_account_type_use_case ← NEW UpdateAccountTypeUseCase(account_type_repository)
+  delete_account_type_use_case ← NEW DeleteAccountTypeUseCase(account_type_repository, member_repository)
+  create_member_use_case ← NEW CreateMemberUseCase(user_repository, member_repository, account_type_repository, password_hasher)
+  list_members_use_case ← NEW ListMembersUseCase(member_repository)
+  update_member_use_case ← NEW UpdateMemberUseCase(member_repository, account_type_repository)
+  deactivate_member_use_case ← NEW DeactivateMemberUseCase(member_repository, session_repository)
   
   // Interface Adapters Layer - Controllers (receive use cases)
-  authController ← NEW AuthController(loginUseCase, refreshTokenUseCase, logoutUseCase)
-  registrationController ← NEW RegistrationController(registerUseCase)
-  accountTypeController ← NEW AccountTypeController(createAccountTypeUseCase, listAccountTypesUseCase, updateAccountTypeUseCase, deleteAccountTypeUseCase)
-  memberController ← NEW MemberController(createMemberUseCase, listMembersUseCase, updateMemberUseCase, deactivateMemberUseCase)
+  auth_controller ← NEW AuthController(login_use_case, refresh_token_use_case, logout_use_case)
+  registration_controller ← NEW RegistrationController(register_use_case)
+  account_type_controller ← NEW AccountTypeController(create_account_type_use_case, list_account_types_use_case, update_account_type_use_case, delete_account_type_use_case)
+  member_controller ← NEW MemberController(create_member_use_case, list_members_use_case, update_member_use_case, deactivate_member_use_case)
   
   RETURN container
 END
@@ -374,11 +404,12 @@ END
 
 ### Principios de DI
 
-- **Constructor Injection** — Todas las dependencias se inyectan via constructor. No se usa service locator.
-- **Interface Segregation** — Cada port define solo los métodos que su consumidor necesita.
+- **Constructor Injection** — Todas las dependencias se inyectan via constructor (`__init__`). No se usa service locator.
+- **Interface Segregation** — Cada port (ABC) define solo los métodos que su consumidor necesita.
 - **Single Responsibility** — Cada use case tiene una única razón para cambiar.
 - **Composition Root** — La composición ocurre en un único punto (Lambda handler entry), no dispersa por el código.
 - **Lazy Initialization** — El container se crea una vez por cold start de Lambda y se reutiliza en invocaciones warm.
+- **Abstract Base Classes (ABC)** — Los ports se definen como ABCs de Python, las implementaciones concretas heredan de ellos.
 
 ## Sequence Diagrams
 
@@ -392,8 +423,8 @@ sequenceDiagram
     participant CT as AuthController
     participant UC as LoginUseCase
     participant UR as IUserRepository
-    participant SR as ISessionRepository
-    participant AS as IAuthService
+    participant SR as ICognitoService
+    participant AS as ICognitoService
     participant DB as DynamoDB
 
     C->>AG: POST /auth/login {email, password}
@@ -406,15 +437,15 @@ sequenceDiagram
     UR->>DB: GetItem(PK=USER#email, SK=PROFILE)
     DB-->>UR: Raw item
     UR-->>UC: User entity (or null)
-    UC->>AS: verify_password(password, user.passwordHash)
+    UC->>AS: initiate_auth(password, user.cognito_sub)
     AS-->>UC: boolean
-    UC->>UR: get_roles_for_tenant(userId, tenantId)
+    UC->>UR: get_roles_for_tenant(user_id, tenant_id)
     UR->>DB: Query(PK=TENANT#{tid}#USER#{uid}, SK begins_with ROLE#)
     DB-->>UR: Role items
     UR-->>UC: Role[] entities
-    UC->>AS: generate_token_pair(userId, tenantId, roles)
+    UC->>AS: generate_token_pair(user_id, tenant_id, roles)
     AS-->>UC: {accessToken, refreshToken}
-    UC->>SR: create_session(userId, tenantId, refreshToken)
+    UC->>SR: create_session(user_id, tenant_id, refreshToken)
     SR->>DB: PutItem(session)
     DB-->>SR: Success
     UC-->>CT: LoginOutputDTO {accessToken, refreshToken}
@@ -436,10 +467,10 @@ sequenceDiagram
     participant TR as ITenantRepository
     participant ATR as IAccountTypeRepository
     participant MR as IMemberRepository
-    participant AS as IAuthService
+    participant AS as ICognitoService
     participant DB as DynamoDB
 
-    C->>AG: POST /auth/register {email, password, fullName, tenantId, accountType?}
+    C->>AG: POST /auth/register {email, password, full_name, tenant_id, account_type?}
     AG->>CT: handle(event)
     CT->>CT: Map request → RegisterInputDTO
     CT->>UC: execute(registerInput)
@@ -448,22 +479,22 @@ sequenceDiagram
     UR->>DB: GetItem(PK=USER#email)
     DB-->>UR: NULL
     UR-->>UC: null (user doesn't exist)
-    UC->>TR: find_by_id(tenantId)
+    UC->>TR: find_by_id(tenant_id)
     TR->>DB: GetItem(PK=TENANT#{tid})
     DB-->>TR: Tenant item
     TR-->>UC: Tenant entity
-    UC->>UC: Verify tenant.allowSelfRegistration
-    UC->>ATR: find_by_name_in_tenant(tenantId, accountTypeName)
+    UC->>UC: Verify tenant.allow_self_registration
+    UC->>ATR: find_by_name_in_tenant(tenant_id, accountTypeName)
     ATR->>DB: Query GSI1
-    DB-->>ATR: AccountType item
-    ATR-->>UC: AccountType entity
-    UC->>AS: hash_password(password)
-    AS-->>UC: passwordHash
+    DB-->>ATR: account_type item
+    ATR-->>UC: account_type entity
+    UC->>AS: sign_up(password)
+    AS-->>UC: cognito_sub
     UC->>UC: Create User, Member, Membership entities
     UC->>UR: register_with_membership(user, membership, member, role)
     UR->>DB: TransactWriteItems [User, Membership, Member, Role]
     DB-->>UR: Success
-    UC->>AS: generate_token_pair(userId, tenantId, ["viewer"])
+    UC->>AS: generate_token_pair(user_id, tenant_id, ["viewer"])
     AS-->>UC: {accessToken, refreshToken}
     UC-->>CT: RegisterOutputDTO {user, accessToken, refreshToken}
     CT-->>AG: 201 {user, tokens}
@@ -484,22 +515,22 @@ sequenceDiagram
     participant ATR as IAccountTypeRepository
     participant DB as DynamoDB
 
-    A->>AG: POST /members {email, fullName, accountType, roles}
+    A->>AG: POST /members {email, full_name, account_type, roles}
     AG->>MW: Validate JWT
-    MW->>MW: Extract tenantId, verify admin role
+    MW->>MW: Extract tenant_id, verify admin role
     MW->>CT: handle(event, tenantContext)
     CT->>CT: Map request → CreateMemberInputDTO
-    CT->>UC: execute(tenantId, input, createdByUserId)
-    UC->>ATR: find_by_name_in_tenant(tenantId, accountType)
+    CT->>UC: execute(tenant_id, input, createdByUserId)
+    UC->>ATR: find_by_name_in_tenant(tenant_id, account_type)
     ATR->>DB: Query GSI1
-    DB-->>ATR: AccountType
-    ATR-->>UC: AccountType entity
+    DB-->>ATR: account_type
+    ATR-->>UC: account_type entity
     UC->>UR: find_by_email(email)
     UR->>DB: GetItem
     alt User exists
         DB-->>UR: User record
         UR-->>UC: User entity
-        UC->>MR: find_by_user_in_tenant(tenantId, userId)
+        UC->>MR: find_by_user_in_tenant(tenant_id, user_id)
         MR-->>UC: null (not yet member)
         UC->>MR: create_member_with_roles(membership, member, roles)
     else User doesn't exist
@@ -529,21 +560,21 @@ sequenceDiagram
 
     C->>AG: POST /account-types {name, description}
     AG->>MW: Validate JWT
-    MW->>MW: Extract tenantId, verify permissions
+    MW->>MW: Extract tenant_id, verify permissions
     MW->>CT: handle(event, tenantContext)
     CT->>CT: Map request → CreateAccountTypeInputDTO
-    CT->>UC: execute(tenantId, input)
-    UC->>UC: Validate AccountType domain entity
-    UC->>ATR: find_by_name_in_tenant(tenantId, name)
+    CT->>UC: execute(tenant_id, input)
+    UC->>UC: Validate account_type domain entity
+    UC->>ATR: find_by_name_in_tenant(tenant_id, name)
     ATR->>DB: Query GSI1
     DB-->>ATR: NULL (no duplicate)
-    UC->>ATR: save(accountType)
+    UC->>ATR: save(account_type)
     ATR->>DB: PutItem(mapped item)
     DB-->>ATR: Success
-    ATR-->>UC: AccountType entity
+    ATR-->>UC: account_type entity
     UC-->>CT: AccountTypeOutputDTO
     CT->>CT: Map DTO → HTTP Response
-    CT-->>AG: 201 {accountType}
+    CT-->>AG: 201 {account_type}
     AG-->>C: Response
 ```
 
@@ -559,13 +590,13 @@ sequenceDiagram
     participant MR as IMemberRepository
     participant DB as DynamoDB
 
-    A->>AG: GET /members?accountType=socio&limit=20
+    A->>AG: GET /members?account_type=socio&limit=20
     AG->>MW: Validate JWT
-    MW->>MW: Extract tenantId, verify permissions
+    MW->>MW: Extract tenant_id, verify permissions
     MW->>CT: handle(event, tenantContext)
     CT->>CT: Map query params → ListMembersInputDTO
-    CT->>UC: execute(tenantId, filters, pagination)
-    UC->>MR: find_by_tenant_and_filters(tenantId, filters, pagination)
+    CT->>UC: execute(tenant_id, filters, pagination)
+    UC->>MR: find_by_tenant_and_filters(tenant_id, filters, pagination)
     MR->>DB: Query(GSI1PK=TENANT#{tid}#MEMBER#ACCTYPE#{type}...)
     DB-->>MR: Raw items + LastEvaluatedKey
     MR-->>UC: PaginatedResult<Member>
@@ -586,9 +617,9 @@ Los ports definen los contratos que los use cases necesitan. Son interfaces decl
 ```pascal
 INTERFACE IUserRepository
   PROCEDURE find_by_email(email: Email): User OR NULL
-  PROCEDURE find_by_id(userId: UUID): User OR NULL
+  PROCEDURE find_by_id(user_id: UUID): User OR NULL
   PROCEDURE save(user: User): User
-  PROCEDURE get_roles_for_tenant(userId: UUID, tenantId: TenantId): List[Role]
+  PROCEDURE get_roles_for_tenant(user_id: UUID, tenant_id: tenant_id): List[Role]
   PROCEDURE register_with_membership(user: User, membership: TenantMembership, member: Member, role: UserRole): Void
   PROCEDURE create_user_with_membership(user: User, membership: TenantMembership, member: Member, roles: List[UserRole]): Void
 END INTERFACE
@@ -598,13 +629,13 @@ END INTERFACE
 
 ```pascal
 INTERFACE IMemberRepository
-  PROCEDURE find_by_id(tenantId: TenantId, memberId: MemberId): Member OR NULL
-  PROCEDURE find_by_user_in_tenant(tenantId: TenantId, userId: UUID): Member OR NULL
-  PROCEDURE find_by_tenant_and_filters(tenantId: TenantId, filters: MemberFilters, pagination: PaginationParams): PaginatedResult[Member]
+  PROCEDURE find_by_id(tenant_id: tenant_id, member_id: member_id): Member OR NULL
+  PROCEDURE find_by_user_in_tenant(tenant_id: tenant_id, user_id: UUID): Member OR NULL
+  PROCEDURE find_by_tenant_and_filters(tenant_id: tenant_id, filters: MemberFilters, pagination: PaginationParams): PaginatedResult[Member]
   PROCEDURE save(member: Member): Member
   PROCEDURE update(member: Member): Member
   PROCEDURE create_member_with_roles(membership: TenantMembership, member: Member, roles: List[UserRole]): Void
-  PROCEDURE count_active_by_account_type(tenantId: TenantId, accountTypeName: String): Number
+  PROCEDURE count_active_by_account_type(tenant_id: tenant_id, accountTypeName: String): Number
 END INTERFACE
 ```
 
@@ -612,22 +643,22 @@ END INTERFACE
 
 ```pascal
 INTERFACE IAccountTypeRepository
-  PROCEDURE find_by_id(tenantId: TenantId, accountTypeId: AccountTypeId): AccountType OR NULL
-  PROCEDURE find_by_name_in_tenant(tenantId: TenantId, name: String): AccountType OR NULL
-  PROCEDURE find_all_by_tenant(tenantId: TenantId, pagination: PaginationParams): PaginatedResult[AccountType]
-  PROCEDURE save(accountType: AccountType): AccountType
-  PROCEDURE update(accountType: AccountType): AccountType
+  PROCEDURE find_by_id(tenant_id: tenant_id, account_type_id: account_type_id): account_type OR NULL
+  PROCEDURE find_by_name_in_tenant(tenant_id: tenant_id, name: String): account_type OR NULL
+  PROCEDURE find_all_by_tenant(tenant_id: tenant_id, pagination: PaginationParams): PaginatedResult[account_type]
+  PROCEDURE save(account_type: account_type): account_type
+  PROCEDURE update(account_type: account_type): account_type
 END INTERFACE
 ```
 
-#### ISessionRepository
+#### ICognitoService
 
 ```pascal
-INTERFACE ISessionRepository
-  PROCEDURE create_session(userId: UUID, tenantId: TenantId, refreshTokenHash: String, ttl: Number): Session
+INTERFACE ICognitoService
+  PROCEDURE create_session(user_id: UUID, tenant_id: tenant_id, refresh_token_hash: String, ttl: Number): Session
   PROCEDURE find_by_token_hash(tokenHash: String): Session OR NULL
   PROCEDURE delete_session(sessionPK: String, sessionSK: String): Void
-  PROCEDURE delete_all_for_user_in_tenant(userId: UUID, tenantId: TenantId): Void
+  PROCEDURE delete_all_for_user_in_tenant(user_id: UUID, tenant_id: tenant_id): Void
   PROCEDURE rotate_token(oldSession: Session, newSession: Session): Void
 END INTERFACE
 ```
@@ -636,17 +667,17 @@ END INTERFACE
 
 ```pascal
 INTERFACE ITenantRepository
-  PROCEDURE find_by_id(tenantId: TenantId): Tenant OR NULL
+  PROCEDURE find_by_id(tenant_id: tenant_id): Tenant OR NULL
 END INTERFACE
 ```
 
-#### IAuthService
+#### ICognitoService
 
 ```pascal
-INTERFACE IAuthService
-  PROCEDURE hash_password(password: Password): String
-  PROCEDURE verify_password(plainPassword: String, hashedPassword: String): Boolean
-  PROCEDURE generate_token_pair(userId: UUID, tenantId: TenantId, email: String, roles: List[String]): TokenPair
+INTERFACE ICognitoService
+  PROCEDURE sign_up(password: Password): String
+  PROCEDURE initiate_auth(plainPassword: String, hashedPassword: String): Boolean
+  PROCEDURE generate_token_pair(user_id: UUID, tenant_id: tenant_id, email: String, roles: List[String]): token_pair
   PROCEDURE verify_access_token(token: String): TokenPayload OR NULL
   PROCEDURE generate_secure_random(length: Number): String
   PROCEDURE hash_token(token: String): String
@@ -661,7 +692,7 @@ Cada use case encapsula una operación de negocio. Recibe DTOs de entrada, orque
 
 ```pascal
 STRUCTURE LoginUseCase
-  DEPENDENCIES: IUserRepository, ISessionRepository, IAuthService
+  DEPENDENCIES: IUserRepository, ICognitoService, ICognitoService
 
   PROCEDURE execute(input: LoginInputDTO): LoginOutputDTO OR Error
     // Orchestrates: validate credentials, check user status, get roles, generate tokens, store session
@@ -672,10 +703,10 @@ END STRUCTURE
 
 ```pascal
 STRUCTURE RegisterUseCase
-  DEPENDENCIES: IUserRepository, IMemberRepository, ITenantRepository, IAccountTypeRepository, ISessionRepository, IAuthService
+  DEPENDENCIES: IUserRepository, IMemberRepository, ITenantRepository, IAccountTypeRepository, ICognitoService, ICognitoService
 
   PROCEDURE execute(input: RegisterInputDTO): RegisterOutputDTO OR Error
-    // Orchestrates: validate uniqueness, verify tenant, determine accountType, create all entities atomically, generate tokens
+    // Orchestrates: validate uniqueness, verify tenant, determine account_type, create all entities atomically, generate tokens
 END STRUCTURE
 ```
 
@@ -685,8 +716,8 @@ END STRUCTURE
 STRUCTURE CreateAccountTypeUseCase
   DEPENDENCIES: IAccountTypeRepository, ITenantRepository
 
-  PROCEDURE execute(tenantId: TenantId, input: CreateAccountTypeInputDTO): AccountTypeOutputDTO OR Error
-    // Orchestrates: verify tenant, check name uniqueness, create and persist AccountType entity
+  PROCEDURE execute(tenant_id: tenant_id, input: CreateAccountTypeInputDTO): AccountTypeOutputDTO OR Error
+    // Orchestrates: verify tenant, check name uniqueness, create and persist account_type entity
 END STRUCTURE
 ```
 
@@ -696,7 +727,7 @@ END STRUCTURE
 STRUCTURE ListAccountTypesUseCase
   DEPENDENCIES: IAccountTypeRepository
 
-  PROCEDURE execute(tenantId: TenantId, pagination: PaginationParams): PaginatedAccountTypesDTO
+  PROCEDURE execute(tenant_id: tenant_id, pagination: PaginationParams): PaginatedAccountTypesDTO
     // Orchestrates: query repository with tenant isolation, return paginated results
 END STRUCTURE
 ```
@@ -707,7 +738,7 @@ END STRUCTURE
 STRUCTURE UpdateAccountTypeUseCase
   DEPENDENCIES: IAccountTypeRepository
 
-  PROCEDURE execute(tenantId: TenantId, accountTypeId: AccountTypeId, input: UpdateAccountTypeInputDTO): AccountTypeOutputDTO OR Error
+  PROCEDURE execute(tenant_id: tenant_id, account_type_id: account_type_id, input: UpdateAccountTypeInputDTO): AccountTypeOutputDTO OR Error
     // Orchestrates: find existing, validate name uniqueness if changed, update entity
 END STRUCTURE
 ```
@@ -718,7 +749,7 @@ END STRUCTURE
 STRUCTURE DeleteAccountTypeUseCase
   DEPENDENCIES: IAccountTypeRepository, IMemberRepository
 
-  PROCEDURE execute(tenantId: TenantId, accountTypeId: AccountTypeId): Void OR Error
+  PROCEDURE execute(tenant_id: tenant_id, account_type_id: account_type_id): Void OR Error
     // Orchestrates: check for active members using this type, soft-delete if safe
 END STRUCTURE
 ```
@@ -727,10 +758,10 @@ END STRUCTURE
 
 ```pascal
 STRUCTURE CreateMemberUseCase
-  DEPENDENCIES: IUserRepository, IMemberRepository, IAccountTypeRepository, IAuthService
+  DEPENDENCIES: IUserRepository, IMemberRepository, IAccountTypeRepository, ICognitoService
 
-  PROCEDURE execute(tenantId: TenantId, input: CreateMemberInputDTO, createdByUserId: UUID): MemberOutputDTO OR Error
-    // Orchestrates: validate accountType, check user existence, create member atomically
+  PROCEDURE execute(tenant_id: tenant_id, input: CreateMemberInputDTO, createdByUserId: UUID): MemberOutputDTO OR Error
+    // Orchestrates: validate account_type, check user existence, create member atomically
 END STRUCTURE
 ```
 
@@ -740,7 +771,7 @@ END STRUCTURE
 STRUCTURE ListMembersUseCase
   DEPENDENCIES: IMemberRepository
 
-  PROCEDURE execute(tenantId: TenantId, filters: MemberFilters, pagination: PaginationParams): PaginatedMembersDTO
+  PROCEDURE execute(tenant_id: tenant_id, filters: MemberFilters, pagination: PaginationParams): PaginatedMembersDTO
     // Orchestrates: query repository with filters and pagination
 END STRUCTURE
 ```
@@ -751,8 +782,8 @@ END STRUCTURE
 STRUCTURE UpdateMemberUseCase
   DEPENDENCIES: IMemberRepository, IAccountTypeRepository
 
-  PROCEDURE execute(tenantId: TenantId, memberId: MemberId, input: UpdateMemberInputDTO): MemberOutputDTO OR Error
-    // Orchestrates: find member, validate new accountType if changed, update
+  PROCEDURE execute(tenant_id: tenant_id, member_id: member_id, input: UpdateMemberInputDTO): MemberOutputDTO OR Error
+    // Orchestrates: find member, validate new account_type if changed, update
 END STRUCTURE
 ```
 
@@ -760,9 +791,9 @@ END STRUCTURE
 
 ```pascal
 STRUCTURE DeactivateMemberUseCase
-  DEPENDENCIES: IMemberRepository, ISessionRepository
+  DEPENDENCIES: IMemberRepository, ICognitoService
 
-  PROCEDURE execute(tenantId: TenantId, memberId: MemberId): Void OR Error
+  PROCEDURE execute(tenant_id: tenant_id, member_id: member_id): Void OR Error
     // Orchestrates: verify member exists, soft-delete, invalidate sessions
 END STRUCTURE
 ```
@@ -783,8 +814,8 @@ STRUCTURE DynamoDBUserRepository IMPLEMENTS IUserRepository
     // Returns: UserMapper.toDomain(item) OR NULL
   END PROCEDURE
 
-  PROCEDURE get_roles_for_tenant(userId: UUID, tenantId: TenantId): List[Role]
-    // Maps: → PK=TENANT#{tenantId}#USER#{userId}, SK begins_with ROLE#
+  PROCEDURE get_roles_for_tenant(user_id: UUID, tenant_id: tenant_id): List[Role]
+    // Maps: → PK=TENANT#{tenant_id}#USER#{user_id}, SK begins_with ROLE#
     // Uses: Query
     // Returns: items mapped to Role entities
   END PROCEDURE
@@ -803,13 +834,13 @@ END STRUCTURE
 STRUCTURE DynamoDBMemberRepository IMPLEMENTS IMemberRepository
   DEPENDENCIES: DynamoDBClient, MemberMapper
 
-  PROCEDURE find_by_tenant_and_filters(tenantId, filters, pagination): PaginatedResult[Member]
-    // Strategy: uses GSI1 if accountType filter present, otherwise base table query
+  PROCEDURE find_by_tenant_and_filters(tenant_id, filters, pagination): PaginatedResult[Member]
+    // Strategy: uses GSI1 if account_type filter present, otherwise base table query
     // Maps: filter → GSI1PK=TENANT#{tid}#MEMBER#ACCTYPE#{type} OR PK=TENANT#{tid}#MEMBER
     // Encapsulates: pagination cursor encoding/decoding
   END PROCEDURE
 
-  PROCEDURE count_active_by_account_type(tenantId, accountTypeName): Number
+  PROCEDURE count_active_by_account_type(tenant_id, accountTypeName): Number
     // Maps: → GSI1 query with status filter
     // Used by: DeleteAccountTypeUseCase to check references
   END PROCEDURE
@@ -822,25 +853,25 @@ END STRUCTURE
 STRUCTURE DynamoDBAccountTypeRepository IMPLEMENTS IAccountTypeRepository
   DEPENDENCIES: DynamoDBClient, AccountTypeMapper
 
-  PROCEDURE find_by_name_in_tenant(tenantId, name): AccountType OR NULL
+  PROCEDURE find_by_name_in_tenant(tenant_id, name): account_type OR NULL
     // Maps: → GSI1PK=TENANT#{tid}#ACCTYPE, GSI1SK=NAME#{lowercase(name)}
     // Encapsulates: case-insensitive name lookup via GSI
   END PROCEDURE
 
-  PROCEDURE save(accountType): AccountType
-    // Maps: AccountType entity → DynamoDB item with PK/SK/GSI keys
+  PROCEDURE save(account_type): account_type
+    // Maps: account_type entity → DynamoDB item with PK/SK/GSI keys
     // Uses: PutItem with ConditionExpression
   END PROCEDURE
 END STRUCTURE
 ```
 
-#### JwtAuthService implements IAuthService
+#### CognitoAuthService implements ICognitoService
 
 ```pascal
-STRUCTURE JwtAuthService IMPLEMENTS IAuthService
+STRUCTURE CognitoAuthService IMPLEMENTS ICognitoService
   DEPENDENCIES: jwtSecret: String, tokenExpiry: Number, saltRounds: Number
 
-  PROCEDURE generate_token_pair(userId, tenantId, email, roles): TokenPair
+  PROCEDURE generate_token_pair(user_id, tenant_id, email, roles): token_pair
     // Uses: jsonwebtoken library to sign JWT
     // Returns: {accessToken, refreshToken}
   END PROCEDURE
@@ -850,12 +881,12 @@ STRUCTURE JwtAuthService IMPLEMENTS IAuthService
     // Returns: decoded payload or null if invalid/expired
   END PROCEDURE
 
-  PROCEDURE hash_password(password): String
-    // Uses: bcrypt with configured salt rounds
+  PROCEDURE sign_up(password): String
+    // Uses: Cognito with configured salt rounds
   END PROCEDURE
 
-  PROCEDURE verify_password(plain, hashed): Boolean
-    // Uses: bcrypt.compare
+  PROCEDURE initiate_auth(plain, hashed): Boolean
+    // Uses: Cognito.compare
   END PROCEDURE
 END STRUCTURE
 ```
@@ -895,14 +926,14 @@ STRUCTURE MemberController
     // 1. Extract body from event
     // 2. Validate request schema
     // 3. Map to CreateMemberInputDTO
-    // 4. Call createMemberUseCase.execute(context.tenantId, dto, context.userId)
+    // 4. Call createMemberUseCase.execute(context.tenant_id, dto, context.user_id)
     // 5. Map MemberOutputDTO → 201 response
   END PROCEDURE
 
   PROCEDURE handle_list(event: APIGatewayEvent, context: TenantContext): APIResponse
-    // 1. Extract query params (accountType, status, limit, cursor)
+    // 1. Extract query params (account_type, status, limit, cursor)
     // 2. Map to filters + pagination
-    // 3. Call listMembersUseCase.execute(context.tenantId, filters, pagination)
+    // 3. Call listMembersUseCase.execute(context.tenant_id, filters, pagination)
     // 4. Map PaginatedMembersDTO → 200 response
   END PROCEDURE
 END STRUCTURE
@@ -919,13 +950,13 @@ INTERFACE TenantGuard
 END INTERFACE
 
 INTERFACE RoleGuard
-  PROCEDURE hasPermission(userRoles: List[Role], requiredPermission: String): Boolean
-  PROCEDURE validateRole(tenantId: String, userId: String, action: String): Boolean
+  PROCEDURE has_permission(user_roles: List[Role], requiredPermission: String): Boolean
+  PROCEDURE validateRole(tenant_id: String, user_id: String, action: String): Boolean
 END INTERFACE
 ```
 
 **Responsibilities**:
-- Extraer tenantId del token JWT
+- Extraer tenant_id del token JWT
 - Verificar que el usuario pertenece al tenant solicitado
 - Validar permisos de rol para la acción solicitada
 - Rechazar acceso cross-tenant
@@ -945,8 +976,8 @@ END INTERFACE
 | GSI2PK | String | Global Secondary Index 2 PK |
 | GSI2SK | String | Global Secondary Index 2 SK |
 | data | Map | Entity-specific attributes |
-| createdAt | String | ISO 8601 timestamp |
-| updatedAt | String | ISO 8601 timestamp |
+| created_at | String | ISO 8601 timestamp |
+| updated_at | String | ISO 8601 timestamp |
 | ttl | Number | TTL for sessions (epoch) |
 
 ### Entity Key Patterns
@@ -958,44 +989,44 @@ STRUCTURE KeyPatterns
   User_SK: "PROFILE"
   
   // User-Tenant membership
-  UserTenant_PK: "TENANT#{tenantId}#USER#{userId}"
+  UserTenant_PK: "TENANT#{tenant_id}#USER#{user_id}"
   UserTenant_SK: "MEMBERSHIP"
   
   // User Roles within Tenant
-  UserRole_PK: "TENANT#{tenantId}#USER#{userId}"
-  UserRole_SK: "ROLE#{roleName}"
+  UserRole_PK: "TENANT#{tenant_id}#USER#{user_id}"
+  UserRole_SK: "ROLE#{role_name}"
   
-  // Members (personas dentro de un tenant con accountType)
-  Member_PK: "TENANT#{tenantId}#MEMBER"
-  Member_SK: "MEMBER#{memberId}"
+  // Members (personas dentro de un tenant con account_type)
+  Member_PK: "TENANT#{tenant_id}#MEMBER"
+  Member_SK: "MEMBER#{member_id}"
   
   // Account Types
-  AccountType_PK: "TENANT#{tenantId}#ACCTYPE"
-  AccountType_SK: "ACCTYPE#{accountTypeId}"
+  AccountType_PK: "TENANT#{tenant_id}#ACCTYPE"
+  AccountType_SK: "ACCTYPE#{account_type_id}"
   
   // Tenants
-  Tenant_PK: "TENANT#{tenantId}"
+  Tenant_PK: "TENANT#{tenant_id}"
   Tenant_SK: "METADATA"
   
   // Sessions (for refresh tokens)
-  Session_PK: "SESSION#{userId}"
+  Session_PK: "SESSION#{user_id}"
   Session_SK: "TOKEN#{tokenId}"
   
   // GSI1 - Query users by tenant
-  GSI1_UsersByTenant_PK: "TENANT#{tenantId}"
-  GSI1_UsersByTenant_SK: "USER#{userId}"
+  GSI1_UsersByTenant_PK: "TENANT#{tenant_id}"
+  GSI1_UsersByTenant_SK: "USER#{user_id}"
   
   // GSI1 - Query account types by name
-  GSI1_AccTypeByName_PK: "TENANT#{tenantId}#ACCTYPE"
+  GSI1_AccTypeByName_PK: "TENANT#{tenant_id}#ACCTYPE"
   GSI1_AccTypeByName_SK: "NAME#{name}"
   
-  // GSI1 - Query members by accountType within tenant
-  GSI1_MembersByAccType_PK: "TENANT#{tenantId}#MEMBER#ACCTYPE#{accountType}"
-  GSI1_MembersByAccType_SK: "MEMBER#{memberId}"
+  // GSI1 - Query members by account_type within tenant
+  GSI1_MembersByAccType_PK: "TENANT#{tenant_id}#MEMBER#ACCTYPE#{account_type}"
+  GSI1_MembersByAccType_SK: "MEMBER#{member_id}"
   
-  // GSI2 - Query member by userId within tenant
-  GSI2_MemberByUser_PK: "TENANT#{tenantId}#MEMBER#USER"
-  GSI2_MemberByUser_SK: "USER#{userId}"
+  // GSI2 - Query member by user_id within tenant
+  GSI2_MemberByUser_PK: "TENANT#{tenant_id}#MEMBER#USER"
+  GSI2_MemberByUser_SK: "USER#{user_id}"
 END STRUCTURE
 ```
 
@@ -1005,89 +1036,89 @@ END STRUCTURE
 STRUCTURE User
   pk: String          // USER#{email}
   sk: String          // PROFILE
-  userId: UUID
+  user_id: UUID
   email: String
-  passwordHash: String
-  fullName: String
+  cognito_sub: String
+  full_name: String
   status: ENUM(active, inactive, suspended, pending_confirmation)
-  createdAt: String
-  updatedAt: String
+  created_at: String
+  updated_at: String
 END STRUCTURE
 
 STRUCTURE Tenant
-  pk: String          // TENANT#{tenantId}
+  pk: String          // TENANT#{tenant_id}
   sk: String          // METADATA
-  tenantId: UUID
+  tenant_id: UUID
   name: String
   plan: ENUM(free, basic, premium)
   status: ENUM(active, suspended)
-  allowSelfRegistration: Boolean
-  defaultAccountType: String   // accountType assigned on self-registration
-  createdAt: String
+  allow_self_registration: Boolean
+  default_account_type: String   // account_type assigned on self-registration
+  created_at: String
 END STRUCTURE
 
 STRUCTURE UserTenantMembership
-  pk: String          // TENANT#{tenantId}#USER#{userId}
+  pk: String          // TENANT#{tenant_id}#USER#{user_id}
   sk: String          // MEMBERSHIP
-  gsi1pk: String      // TENANT#{tenantId}
-  gsi1sk: String      // USER#{userId}
-  userId: UUID
-  tenantId: UUID
-  joinedAt: String
+  gsi1pk: String      // TENANT#{tenant_id}
+  gsi1sk: String      // USER#{user_id}
+  user_id: UUID
+  tenant_id: UUID
+  joined_at: String
 END STRUCTURE
 
 STRUCTURE UserRole
-  pk: String          // TENANT#{tenantId}#USER#{userId}
-  sk: String          // ROLE#{roleName}
-  roleName: String
+  pk: String          // TENANT#{tenant_id}#USER#{user_id}
+  sk: String          // ROLE#{role_name}
+  role_name: String
   permissions: List[String]
-  assignedAt: String
+  assigned_at: String
 END STRUCTURE
 
 STRUCTURE Member
-  pk: String          // TENANT#{tenantId}#MEMBER
-  sk: String          // MEMBER#{memberId}
-  gsi1pk: String      // TENANT#{tenantId}#MEMBER#ACCTYPE#{accountType}
-  gsi1sk: String      // MEMBER#{memberId}
-  gsi2pk: String      // TENANT#{tenantId}#MEMBER#USER
-  gsi2sk: String      // USER#{userId}
-  memberId: UUID
-  tenantId: UUID
-  userId: UUID
-  accountType: String          // "socio", "usuario", "profesional" (references AccountType)
-  accountTypeId: UUID          // FK to AccountType entity
-  fullName: String
+  pk: String          // TENANT#{tenant_id}#MEMBER
+  sk: String          // MEMBER#{member_id}
+  gsi1pk: String      // TENANT#{tenant_id}#MEMBER#ACCTYPE#{account_type}
+  gsi1sk: String      // MEMBER#{member_id}
+  gsi2pk: String      // TENANT#{tenant_id}#MEMBER#USER
+  gsi2sk: String      // USER#{user_id}
+  member_id: UUID
+  tenant_id: UUID
+  user_id: UUID
+  account_type: String          // "socio", "usuario", "profesional" (references account_type)
+  account_type_id: UUID          // FK to account_type entity
+  full_name: String
   email: String
   status: ENUM(active, inactive, pending)
-  registrationType: ENUM(self, invited)
-  invitedBy: UUID OR NULL      // userId of admin who invited, NULL if self-registered
+  registration_type: ENUM(self, invited)
+  invited_by: UUID OR NULL      // user_id of admin who invited, NULL if self-registered
   metadata: Map                // Additional member-specific data
-  createdAt: String
-  updatedAt: String
+  created_at: String
+  updated_at: String
 END STRUCTURE
 
-STRUCTURE AccountType
-  pk: String          // TENANT#{tenantId}#ACCTYPE
-  sk: String          // ACCTYPE#{accountTypeId}
-  gsi1pk: String      // TENANT#{tenantId}#ACCTYPE
+STRUCTURE account_type
+  pk: String          // TENANT#{tenant_id}#ACCTYPE
+  sk: String          // ACCTYPE#{account_type_id}
+  gsi1pk: String      // TENANT#{tenant_id}#ACCTYPE
   gsi1sk: String      // NAME#{name}
-  accountTypeId: UUID
-  tenantId: UUID
+  account_type_id: UUID
+  tenant_id: UUID
   name: String             // "socio", "usuario", "profesional", custom types
   description: String
   config: Map
   status: ENUM(active, inactive)
-  createdAt: String
-  updatedAt: String
+  created_at: String
+  updated_at: String
 END STRUCTURE
 
 STRUCTURE Session
-  pk: String          // SESSION#{userId}
+  pk: String          // SESSION#{user_id}
   sk: String          // TOKEN#{tokenId}
   refreshToken: String
-  tenantId: String
-  expiresAt: Number   // TTL epoch
-  createdAt: String
+  tenant_id: String
+  expires_at: Number   // TTL epoch
+  created_at: String
   ttl: Number         // DynamoDB TTL
 END STRUCTURE
 ```
@@ -1104,8 +1135,8 @@ END STRUCTURE
 | Find account type by name | Query GSI1 | GSI1PK=TENANT#{tid}#ACCTYPE, GSI1SK=NAME#{name} |
 | Get member by ID | GetItem | PK=TENANT#{tid}#MEMBER, SK=MEMBER#{mid} |
 | List members by tenant | Query | PK=TENANT#{tid}#MEMBER, SK begins_with MEMBER# |
-| List members by accountType | Query GSI1 | GSI1PK=TENANT#{tid}#MEMBER#ACCTYPE#{type}, GSI1SK begins_with MEMBER# |
-| Get member by userId in tenant | Query GSI2 | GSI2PK=TENANT#{tid}#MEMBER#USER, GSI2SK=USER#{uid} |
+| List members by account_type | Query GSI1 | GSI1PK=TENANT#{tid}#MEMBER#ACCTYPE#{type}, GSI1SK begins_with MEMBER# |
+| Get member by user_id in tenant | Query GSI2 | GSI2PK=TENANT#{tid}#MEMBER#USER, GSI2SK=USER#{uid} |
 | Get user sessions | Query | PK=SESSION#{uid}, SK begins_with TOKEN# |
 | Get tenant metadata | GetItem | PK=TENANT#{tid}, SK=METADATA |
 | Get user membership | GetItem | PK=TENANT#{tid}#USER#{uid}, SK=MEMBERSHIP |
@@ -1113,13 +1144,13 @@ END STRUCTURE
 ### Validation Rules
 
 - `email`: formato válido, único globalmente
-- `name` (AccountType): no vacío, máx 100 caracteres, único dentro del tenant
-- `tenantId`: debe existir en la tabla
-- `roleName`: debe ser uno de los roles válidos del sistema
-- `passwordHash`: generado con bcrypt, salt rounds >= 10
-- `accountType` (Member): debe referenciar un AccountType activo dentro del mismo tenant
-- `memberId`: único dentro del tenant
-- `fullName` (Member): no vacío, máx 200 caracteres
+- `name` (account_type): no vacío, máx 100 caracteres, único dentro del tenant
+- `tenant_id`: debe existir en la tabla
+- `role_name`: debe ser uno de los roles válidos del sistema
+- `cognito_sub`: identificador �nico del usuario en Cognito (UUID generado por Cognito)
+- `account_type` (Member): debe referenciar un account_type activo dentro del mismo tenant
+- `member_id`: único dentro del tenant
+- `full_name` (Member): no vacío, máx 200 caracteres
 
 ## Multi-Role Model
 
@@ -1161,8 +1192,8 @@ OUTPUT: result of type LoginOutputDTO OR Error
 
 BEGIN
   // --- Domain Validation ---
-  emailVO ← Email.create(input.email)
-  IF emailVO IS Error THEN
+  email_vo ← Email.create(input.email)
+  IF email_vo IS Error THEN
     RETURN Error("Invalid email format")
   END IF
   
@@ -1171,7 +1202,7 @@ BEGIN
   // --- Use Case Orchestration (via Ports) ---
   
   // Step 1: Retrieve user via repository port
-  user ← this.userRepository.find_by_email(emailVO)
+  user ← this.user_repository.find_by_email(email_vo)
   
   IF user IS NULL THEN
     RETURN Error("Invalid credentials")
@@ -1182,35 +1213,35 @@ BEGIN
   END IF
   
   // Step 2: Verify password via auth service port
-  isValid ← this.authService.verify_password(input.password, user.passwordHash)
+  is_valid ← this.auth_service.initiate_auth(input.password, user.password_hash)
   
-  IF NOT isValid THEN
+  IF NOT is_valid THEN
     RETURN Error("Invalid credentials")
   END IF
   
   // Step 3: Get roles via repository port
-  roles ← this.userRepository.get_roles_for_tenant(user.userId, user.primaryTenantId)
+  roles ← this.user_repository.get_roles_for_tenant(user.user_id, user.primary_tenant_id)
   
   IF roles IS EMPTY THEN
     RETURN Error("No tenant assigned")
   END IF
   
-  roleNames ← EXTRACT roleName FROM EACH role IN roles
+  role_names ← EXTRACT role_name FROM EACH role IN roles
   
   // Step 4: Generate tokens via auth service port
-  tokenPair ← this.authService.generate_token_pair(user.userId, user.primaryTenantId, user.email, roleNames)
+  token_pair ← this.auth_service.generate_token_pair(user.user_id, user.primary_tenant_id, user.email, role_names)
   
   // Step 5: Store session via repository port
-  refreshTokenHash ← this.authService.hash_token(tokenPair.refreshToken)
-  this.sessionRepository.create_session(user.userId, user.primaryTenantId, refreshTokenHash, NOW() + 86400 * 7)
+  refresh_token_hash ← this.auth_service.hash_token(token_pair.refresh_token)
+  this.session_repository.create_session(user.user_id, user.primary_tenant_id, refresh_token_hash, NOW() + 86400 * 7)
   
   // --- Return Output DTO ---
   RETURN LoginOutputDTO {
-    accessToken: tokenPair.accessToken,
-    refreshToken: tokenPair.refreshToken,
-    userId: user.userId,
-    tenantId: user.primaryTenantId,
-    roles: roleNames
+    access_token: token_pair.access_token,
+    refresh_token: token_pair.refresh_token,
+    user_id: user.user_id,
+    tenant_id: user.primary_tenant_id,
+    roles: role_names
   }
 END
 ```
@@ -1218,11 +1249,11 @@ END
 **Preconditions:**
 - `input.email` is a non-empty string with valid email format
 - `input.password` is a non-empty string
-- All injected ports (IUserRepository, ISessionRepository, IAuthService) are available
+- All injected ports (IUserRepository, ICognitoService, ICognitoService) are available
 
 **Postconditions:**
 - On success: returns valid JWT access token and refresh token
-- On success: session stored via ISessionRepository
+- On success: session stored via ICognitoService
 - On failure: returns error without leaking user existence info
 - No mutations to user record on authentication failure
 
@@ -1230,33 +1261,33 @@ END
 
 ```pascal
 ALGORITHM RegisterUseCase.execute(input: RegisterInputDTO)
-INPUT: input of type RegisterInputDTO {email, password, fullName, tenantId, accountType?}
+INPUT: input of type RegisterInputDTO {email, password, full_name, tenant_id, account_type?}
 OUTPUT: result of type RegisterOutputDTO OR Error
 
 BEGIN
   // --- Domain Validation (Value Objects) ---
-  emailVO ← Email.create(input.email)
-  IF emailVO IS Error THEN RETURN Error("Invalid email format") END IF
+  email_vo ← Email.create(input.email)
+  IF email_vo IS Error THEN RETURN Error("Invalid email format") END IF
   
-  passwordVO ← Password.create(input.password)
-  IF passwordVO IS Error THEN RETURN Error("Password must be >= 8 characters") END IF
+  password_vo ← Password.create(input.password)
+  IF password_vo IS Error THEN RETURN Error("Password must be >= 8 characters") END IF
   
-  tenantIdVO ← TenantId.create(input.tenantId)
-  IF tenantIdVO IS Error THEN RETURN Error("Invalid tenant ID") END IF
+  tenant_id_vo ← tenant_id.create(input.tenant_id)
+  IF tenant_id_vo IS Error THEN RETURN Error("Invalid tenant ID") END IF
   
-  ASSERT input.fullName IS NOT empty
+  ASSERT input.full_name IS NOT empty
   
   // --- Use Case Orchestration (via Ports) ---
   
   // Step 1: Check if user already exists
-  existingUser ← this.userRepository.find_by_email(emailVO)
+  existing_user ← this.user_repository.find_by_email(email_vo)
   
-  IF existingUser IS NOT NULL THEN
+  IF existing_user IS NOT NULL THEN
     RETURN Error("Email already registered")
   END IF
   
   // Step 2: Verify tenant exists and allows self-registration
-  tenant ← this.tenantRepository.find_by_id(tenantIdVO)
+  tenant ← this.tenant_repository.find_by_id(tenant_id_vo)
   
   IF tenant IS NULL THEN
     RETURN Error("Tenant not found")
@@ -1266,175 +1297,175 @@ BEGIN
     RETURN Error("Tenant is not active")
   END IF
   
-  IF NOT tenant.allowSelfRegistration THEN
+  IF NOT tenant.allow_self_registration THEN
     RETURN Error("Self-registration is not allowed for this institution")
   END IF
   
-  // Step 3: Determine and validate accountType
-  accountTypeName ← input.accountType OR tenant.defaultAccountType OR "usuario"
+  // Step 3: Determine and validate account_type
+  account_type_name ← input.account_type OR tenant.default_account_type OR "usuario"
   
-  accountTypeRecord ← this.accountTypeRepository.find_by_name_in_tenant(tenantIdVO, LOWERCASE(accountTypeName))
+  account_type_record ← this.account_type_repository.find_by_name_in_tenant(tenant_id_vo, LOWERCASE(account_type_name))
   
-  IF accountTypeRecord IS NULL THEN
+  IF account_type_record IS NULL THEN
     RETURN Error("Invalid account type")
   END IF
   
   // Step 4: Hash password via auth service port
-  passwordHash ← this.authService.hash_password(passwordVO)
+  password_hash ← this.auth_service.sign_up(password_vo)
   
   // Step 5: Create domain entities
-  userId ← generateUUID()
-  memberId ← generateUUID()
+  user_id ← generate_uuid()
+  member_id ← generate_uuid()
   now ← ISO8601(NOW())
   
-  user ← User.create(userId, emailVO, passwordHash, input.fullName, "active", now)
-  membership ← TenantMembership.create(tenantIdVO, userId, now)
-  member ← Member.create(memberId, tenantIdVO, userId, accountTypeName, accountTypeRecord.accountTypeId, input.fullName, emailVO, "active", "self", NULL, now)
-  role ← UserRole.create(tenantIdVO, userId, "viewer", ["read"], now)
+  user ← User.create(user_id, email_vo, password_hash, input.full_name, "active", now)
+  membership ← TenantMembership.create(tenant_id_vo, user_id, now)
+  member ← Member.create(member_id, tenant_id_vo, user_id, account_type_name, account_type_record.account_type_id, input.full_name, email_vo, "active", "self", NULL, now)
+  role ← UserRole.create(tenant_id_vo, user_id, "viewer", ["read"], now)
   
   // Step 6: Atomic persistence via repository port
-  this.userRepository.register_with_membership(user, membership, member, role)
+  this.user_repository.register_with_membership(user, membership, member, role)
   
   // Step 7: Generate tokens via auth service port
-  tokenPair ← this.authService.generate_token_pair(userId, tenantIdVO, emailVO, ["viewer"])
+  token_pair ← this.auth_service.generate_token_pair(user_id, tenant_id_vo, email_vo, ["viewer"])
   
   // Store session
-  refreshTokenHash ← this.authService.hash_token(tokenPair.refreshToken)
-  this.sessionRepository.create_session(userId, tenantIdVO, refreshTokenHash, NOW() + 86400 * 7)
+  refresh_token_hash ← this.auth_service.hash_token(token_pair.refresh_token)
+  this.session_repository.create_session(user_id, tenant_id_vo, refresh_token_hash, NOW() + 86400 * 7)
   
   // --- Return Output DTO ---
   RETURN RegisterOutputDTO {
-    userId: userId,
-    memberId: memberId,
-    accessToken: tokenPair.accessToken,
-    refreshToken: tokenPair.refreshToken
+    user_id: user_id,
+    member_id: member_id,
+    access_token: token_pair.access_token,
+    refresh_token: token_pair.refresh_token
   }
 END
 ```
 
 **Preconditions:**
 - `email` is unique globally (not already registered)
-- `tenantId` references an active tenant that allows self-registration
-- `accountType` (if provided) must reference an active AccountType in the tenant
+- `tenant_id` references an active tenant that allows self-registration
+- `account_type` (if provided) must reference an active account_type in the tenant
 - `password` meets minimum security requirements (>= 8 chars)
 
 **Postconditions:**
 - User, TenantMembership, Member, and Role all created atomically (all or nothing)
 - User immediately receives tokens for authentication
-- Member is assigned the specified or default accountType
+- Member is assigned the specified or default account_type
 - Default role "viewer" is assigned
 - If any part of the transaction fails, no records are created
 
 ### Create Member Algorithm (CreateMemberUseCase.execute)
 
 ```pascal
-ALGORITHM CreateMemberUseCase.execute(tenantId: TenantId, input: CreateMemberInputDTO, createdByUserId: UUID)
-INPUT: tenantId of type TenantId, input of type CreateMemberInputDTO {email, fullName, accountType, roles}, createdByUserId of type UUID
+ALGORITHM CreateMemberUseCase.execute(tenant_id: tenant_id, input: CreateMemberInputDTO, created_by_user_id: UUID)
+INPUT: tenant_id of type tenant_id, input of type CreateMemberInputDTO {email, full_name, account_type, roles}, created_by_user_id of type UUID
 OUTPUT: result of type MemberOutputDTO OR Error
 
 BEGIN
   // --- Domain Validation ---
-  emailVO ← Email.create(input.email)
-  IF emailVO IS Error THEN RETURN Error("Invalid email format") END IF
+  email_vo ← Email.create(input.email)
+  IF email_vo IS Error THEN RETURN Error("Invalid email format") END IF
   
-  ASSERT input.fullName IS NOT empty
-  ASSERT input.accountType IS NOT empty
+  ASSERT input.full_name IS NOT empty
+  ASSERT input.account_type IS NOT empty
   ASSERT input.roles IS NOT empty
   
   // --- Use Case Orchestration (via Ports) ---
   
-  // Step 1: Verify accountType exists in tenant
-  accountTypeRecord ← this.accountTypeRepository.find_by_name_in_tenant(tenantId, LOWERCASE(input.accountType))
+  // Step 1: Verify account_type exists in tenant
+  account_type_record ← this.account_type_repository.find_by_name_in_tenant(tenant_id, LOWERCASE(input.account_type))
   
-  IF accountTypeRecord IS NULL THEN
-    RETURN Error("Account type '" + input.accountType + "' does not exist in this tenant")
+  IF account_type_record IS NULL THEN
+    RETURN Error("Account type '" + input.account_type + "' does not exist in this tenant")
   END IF
   
-  IF accountTypeRecord.status != "active" THEN
+  IF account_type_record.status != "active" THEN
     RETURN Error("Account type is not active")
   END IF
   
   // Step 2: Check if user already exists
-  existingUser ← this.userRepository.find_by_email(emailVO)
+  existing_user ← this.user_repository.find_by_email(email_vo)
   
-  memberId ← generateUUID()
+  member_id ← generate_uuid()
   now ← ISO8601(NOW())
   
-  IF existingUser IS NULL THEN
+  IF existing_user IS NULL THEN
     // New user - create User entity with temp password
-    userId ← generateUUID()
-    tempPassword ← this.authService.generate_secure_random(16)
-    passwordHash ← this.authService.hash_password(Password.createUnsafe(tempPassword))
+    user_id ← generate_uuid()
+    temp_password ← this.auth_service.generate_secure_random(16)
+    password_hash ← this.auth_service.sign_up(Password.create_unsafe(temp_password))
     
-    user ← User.create(userId, emailVO, passwordHash, input.fullName, "pending_confirmation", now)
-    membership ← TenantMembership.create(tenantId, userId, now)
-    member ← Member.create(memberId, tenantId, userId, input.accountType, accountTypeRecord.accountTypeId, input.fullName, emailVO, "active", "invited", createdByUserId, now)
-    roles ← MAP input.roles TO UserRole.create(tenantId, userId, roleName, ROLES[roleName], now)
+    user ← User.create(user_id, email_vo, password_hash, input.full_name, "pending_confirmation", now)
+    membership ← TenantMembership.create(tenant_id, user_id, now)
+    member ← Member.create(member_id, tenant_id, user_id, input.account_type, account_type_record.account_type_id, input.full_name, email_vo, "active", "invited", created_by_user_id, now)
+    roles ← MAP input.roles TO UserRole.create(tenant_id, user_id, role_name, ROLES[role_name], now)
     
     // Validate all roles are valid
-    FOR EACH roleName IN input.roles DO
-      IF roleName NOT IN VALID_ROLES THEN
-        RETURN Error("Invalid role: " + roleName)
+    FOR EACH role_name IN input.roles DO
+      IF role_name NOT IN VALID_ROLES THEN
+        RETURN Error("Invalid role: " + role_name)
       END IF
     END FOR
     
-    this.userRepository.create_user_with_membership(user, membership, member, roles)
+    this.user_repository.create_user_with_membership(user, membership, member, roles)
   ELSE
-    userId ← existingUser.userId
+    user_id ← existing_user.user_id
     
     // Check if already a member of this tenant
-    existingMember ← this.memberRepository.find_by_user_in_tenant(tenantId, userId)
+    existing_member ← this.member_repository.find_by_user_in_tenant(tenant_id, user_id)
     
-    IF existingMember IS NOT NULL THEN
+    IF existing_member IS NOT NULL THEN
       RETURN Error("User is already a member of this tenant")
     END IF
     
-    membership ← TenantMembership.create(tenantId, userId, now)
-    member ← Member.create(memberId, tenantId, userId, input.accountType, accountTypeRecord.accountTypeId, input.fullName, emailVO, "active", "invited", createdByUserId, now)
-    roles ← MAP input.roles TO UserRole.create(tenantId, userId, roleName, ROLES[roleName], now)
+    membership ← TenantMembership.create(tenant_id, user_id, now)
+    member ← Member.create(member_id, tenant_id, user_id, input.account_type, account_type_record.account_type_id, input.full_name, email_vo, "active", "invited", created_by_user_id, now)
+    roles ← MAP input.roles TO UserRole.create(tenant_id, user_id, role_name, ROLES[role_name], now)
     
-    FOR EACH roleName IN input.roles DO
-      IF roleName NOT IN VALID_ROLES THEN
-        RETURN Error("Invalid role: " + roleName)
+    FOR EACH role_name IN input.roles DO
+      IF role_name NOT IN VALID_ROLES THEN
+        RETURN Error("Invalid role: " + role_name)
       END IF
     END FOR
     
-    this.memberRepository.create_member_with_roles(membership, member, roles)
+    this.member_repository.create_member_with_roles(membership, member, roles)
   END IF
   
   // --- Return Output DTO ---
   RETURN MemberOutputDTO {
-    memberId: memberId,
-    tenantId: tenantId,
-    userId: userId,
-    accountType: input.accountType,
-    fullName: input.fullName,
+    member_id: member_id,
+    tenant_id: tenant_id,
+    user_id: user_id,
+    account_type: input.account_type,
+    full_name: input.full_name,
     email: input.email,
     status: "active",
-    registrationType: "invited",
-    invitedBy: createdByUserId,
-    createdAt: now
+    registration_type: "invited",
+    invited_by: created_by_user_id,
+    created_at: now
   }
 END
 ```
 
 **Preconditions:**
-- `createdByUserId` has "manage_members" or "invite_members" permission in the tenant
-- `input.accountType` references an active AccountType in the tenant
+- `created_by_user_id` has "manage_members" or "invite_members" permission in the tenant
+- `input.account_type` references an active account_type in the tenant
 - `input.roles` contains only valid role names
 
 **Postconditions:**
 - If user is new: User record created with status "pending_confirmation"
 - If user exists: only Membership, Member, and Roles are created
 - All records created atomically
-- Member is linked to both the User and the AccountType
+- Member is linked to both the User and the account_type
 - User cannot be added as member to same tenant twice
 
 ### List Members Algorithm (ListMembersUseCase.execute)
 
 ```pascal
-ALGORITHM ListMembersUseCase.execute(tenantId: TenantId, filters: MemberFilters, pagination: PaginationParams)
-INPUT: tenantId of type TenantId, filters of type MemberFilters {accountType?, status?}, pagination of type PaginationParams {limit: Number, lastKey: String OR NULL}
+ALGORITHM ListMembersUseCase.execute(tenant_id: tenant_id, filters: MemberFilters, pagination: PaginationParams)
+INPUT: tenant_id of type tenant_id, filters of type MemberFilters {account_type?, status?}, pagination of type PaginationParams {limit: Number, last_key: String OR NULL}
 OUTPUT: result of type PaginatedMembersDTO
 
 BEGIN
@@ -1442,25 +1473,25 @@ BEGIN
   ASSERT pagination.limit > 0 AND pagination.limit <= 100
   
   // --- Use Case Orchestration (via Port) ---
-  paginatedResult ← this.memberRepository.find_by_tenant_and_filters(tenantId, filters, pagination)
+  paginated_result ← this.member_repository.find_by_tenant_and_filters(tenant_id, filters, pagination)
   
   // --- Map to Output DTO ---
   RETURN PaginatedMembersDTO {
-    items: MAP paginatedResult.items TO MemberOutputDTO,
-    nextKey: paginatedResult.nextKey,
-    count: paginatedResult.count
+    items: MAP paginated_result.items TO MemberOutputDTO,
+    next_key: paginated_result.next_key,
+    count: paginated_result.count
   }
 END
 ```
 
 **Preconditions:**
-- `tenantId` corresponds to an existing tenant
+- `tenant_id` corresponds to an existing tenant
 - `limit` is between 1 and 100
-- If `accountType` filter is specified, it must be a valid accountType name
+- If `account_type` filter is specified, it must be a valid account_type name
 
 **Postconditions:**
 - Returns only members belonging to the specified tenant
-- If accountType filter applied, returns only members with that accountType
+- If account_type filter applied, returns only members with that account_type
 - Pagination cursor provided if more items exist
 - Never returns members from other tenants
 
@@ -1469,44 +1500,44 @@ END
 ### Update Member Algorithm (UpdateMemberUseCase.execute)
 
 ```pascal
-ALGORITHM UpdateMemberUseCase.execute(tenantId: TenantId, memberId: MemberId, input: UpdateMemberInputDTO)
-INPUT: tenantId of type TenantId, memberId of type MemberId, input of type UpdateMemberInputDTO {accountType?, status?, fullName?, metadata?}
+ALGORITHM UpdateMemberUseCase.execute(tenant_id: tenant_id, member_id: member_id, input: UpdateMemberInputDTO)
+INPUT: tenant_id of type tenant_id, member_id of type member_id, input of type UpdateMemberInputDTO {account_type?, status?, full_name?, metadata?}
 OUTPUT: result of type MemberOutputDTO OR Error
 
 BEGIN
   // --- Use Case Orchestration (via Ports) ---
   
   // Step 1: Get existing member
-  existing ← this.memberRepository.find_by_id(tenantId, memberId)
+  existing ← this.member_repository.find_by_id(tenant_id, member_id)
   
   IF existing IS NULL THEN
     RETURN Error("Member not found")
   END IF
   
-  // Step 2: If accountType is changing, validate new accountType
-  IF input.accountType IS NOT NULL AND LOWERCASE(input.accountType) != LOWERCASE(existing.accountType) THEN
-    accountTypeRecord ← this.accountTypeRepository.find_by_name_in_tenant(tenantId, LOWERCASE(input.accountType))
+  // Step 2: If account_type is changing, validate new account_type
+  IF input.account_type IS NOT NULL AND LOWERCASE(input.account_type) != LOWERCASE(existing.account_type) THEN
+    account_type_record ← this.account_type_repository.find_by_name_in_tenant(tenant_id, LOWERCASE(input.account_type))
     
-    IF accountTypeRecord IS NULL THEN
-      RETURN Error("Account type '" + input.accountType + "' does not exist in this tenant")
+    IF account_type_record IS NULL THEN
+      RETURN Error("Account type '" + input.account_type + "' does not exist in this tenant")
     END IF
     
-    IF accountTypeRecord.status != "active" THEN
+    IF account_type_record.status != "active" THEN
       RETURN Error("Account type is not active")
     END IF
     
-    existing.accountType = input.accountType
-    existing.accountTypeId = accountTypeRecord.accountTypeId
+    existing.account_type = input.account_type
+    existing.account_type_id = account_type_record.account_type_id
   END IF
   
   // Step 3: Apply updates to domain entity
   IF input.status IS NOT NULL THEN existing.status = input.status END IF
-  IF input.fullName IS NOT NULL THEN existing.fullName = input.fullName END IF
+  IF input.full_name IS NOT NULL THEN existing.full_name = input.full_name END IF
   IF input.metadata IS NOT NULL THEN existing.metadata = input.metadata END IF
-  existing.updatedAt = ISO8601(NOW())
+  existing.updated_at = ISO8601(NOW())
   
   // Step 4: Persist via repository port
-  updated ← this.memberRepository.update(existing)
+  updated ← this.member_repository.update(existing)
   
   // --- Return Output DTO ---
   RETURN MemberOutputDTO(updated)
@@ -1515,26 +1546,26 @@ END
 
 **Preconditions:**
 - Member exists in the specified tenant
-- If accountType is being changed, new accountType must be active in the tenant
+- If account_type is being changed, new account_type must be active in the tenant
 
 **Postconditions:**
 - Only specified fields are updated
-- GSI1 updated if accountType changed (handled by repository implementation)
-- `updatedAt` timestamp refreshed
-- Original `createdAt` and `registrationType` preserved
+- GSI1 updated if account_type changed (handled by repository implementation)
+- `updated_at` timestamp refreshed
+- Original `created_at` and `registration_type` preserved
 
 ### Deactivate Member Algorithm (DeactivateMemberUseCase.execute)
 
 ```pascal
-ALGORITHM DeactivateMemberUseCase.execute(tenantId: TenantId, memberId: MemberId)
-INPUT: tenantId of type TenantId, memberId of type MemberId
+ALGORITHM DeactivateMemberUseCase.execute(tenant_id: tenant_id, member_id: member_id)
+INPUT: tenant_id of type tenant_id, member_id of type member_id
 OUTPUT: Void OR Error
 
 BEGIN
   // --- Use Case Orchestration (via Ports) ---
   
   // Step 1: Verify member exists
-  existing ← this.memberRepository.find_by_id(tenantId, memberId)
+  existing ← this.member_repository.find_by_id(tenant_id, member_id)
   
   IF existing IS NULL THEN
     RETURN Error("Member not found")
@@ -1546,12 +1577,12 @@ BEGIN
   
   // Step 2: Soft delete - update domain entity
   existing.status = "inactive"
-  existing.updatedAt = ISO8601(NOW())
+  existing.updated_at = ISO8601(NOW())
   
-  this.memberRepository.update(existing)
+  this.member_repository.update(existing)
   
   // Step 3: Invalidate sessions for this tenant via session port
-  this.sessionRepository.delete_all_for_user_in_tenant(existing.userId, tenantId)
+  this.session_repository.delete_all_for_user_in_tenant(existing.user_id, tenant_id)
   
   RETURN Void
 END
@@ -1570,8 +1601,8 @@ END
 ### CRUD - Create Account Type (CreateAccountTypeUseCase.execute)
 
 ```pascal
-ALGORITHM CreateAccountTypeUseCase.execute(tenantId: TenantId, input: CreateAccountTypeInputDTO)
-INPUT: tenantId of type TenantId, input of type CreateAccountTypeInputDTO {name, description?, config?}
+ALGORITHM CreateAccountTypeUseCase.execute(tenant_id: tenant_id, input: CreateAccountTypeInputDTO)
+INPUT: tenant_id of type tenant_id, input of type CreateAccountTypeInputDTO {name, description?, config?}
 OUTPUT: result of type AccountTypeOutputDTO OR Error
 
 BEGIN
@@ -1582,31 +1613,31 @@ BEGIN
   // --- Use Case Orchestration (via Ports) ---
   
   // Step 1: Verify tenant exists
-  tenant ← this.tenantRepository.find_by_id(tenantId)
+  tenant ← this.tenant_repository.find_by_id(tenant_id)
   
   IF tenant IS NULL THEN
     RETURN Error("Tenant not found")
   END IF
   
   // Step 2: Check for duplicate name within tenant
-  existing ← this.accountTypeRepository.find_by_name_in_tenant(tenantId, LOWERCASE(input.name))
+  existing ← this.account_type_repository.find_by_name_in_tenant(tenant_id, LOWERCASE(input.name))
   
   IF existing IS NOT NULL THEN
     RETURN Error("Account type name already exists in this tenant")
   END IF
   
   // Step 3: Create domain entity
-  accountTypeId ← generateUUID()
+  account_type_id ← generate_uuid()
   now ← ISO8601(NOW())
   
-  accountType ← AccountType.create(
-    accountTypeId, tenantId, input.name, 
+  account_type ← account_type.create(
+    account_type_id, tenant_id, input.name, 
     input.description OR "", input.config OR {}, 
     "active", now
   )
   
   // Step 4: Persist via repository port
-  saved ← this.accountTypeRepository.save(accountType)
+  saved ← this.account_type_repository.save(account_type)
   
   // --- Return Output DTO ---
   RETURN AccountTypeOutputDTO(saved)
@@ -1614,7 +1645,7 @@ END
 ```
 
 **Preconditions:**
-- `tenantId` corresponds to an existing tenant
+- `tenant_id` corresponds to an existing tenant
 - `input.name` is non-empty and max 100 characters
 
 **Postconditions:**
@@ -1625,48 +1656,48 @@ END
 ### CRUD - List Account Types (ListAccountTypesUseCase.execute)
 
 ```pascal
-ALGORITHM ListAccountTypesUseCase.execute(tenantId: TenantId, pagination: PaginationParams)
-INPUT: tenantId of type TenantId, pagination of type PaginationParams {limit: Number, lastKey: String OR NULL}
+ALGORITHM ListAccountTypesUseCase.execute(tenant_id: tenant_id, pagination: PaginationParams)
+INPUT: tenant_id of type tenant_id, pagination of type PaginationParams {limit: Number, last_key: String OR NULL}
 OUTPUT: result of type PaginatedAccountTypesDTO
 
 BEGIN
   ASSERT pagination.limit > 0 AND pagination.limit <= 100
   
   // --- Use Case Orchestration (via Port) ---
-  paginatedResult ← this.accountTypeRepository.find_all_by_tenant(tenantId, pagination)
+  paginated_result ← this.account_type_repository.find_all_by_tenant(tenant_id, pagination)
   
   // --- Return Output DTO ---
   RETURN PaginatedAccountTypesDTO {
-    items: MAP paginatedResult.items TO AccountTypeOutputDTO,
-    nextKey: paginatedResult.nextKey,
-    count: paginatedResult.count
+    items: MAP paginated_result.items TO AccountTypeOutputDTO,
+    next_key: paginated_result.next_key,
+    count: paginated_result.count
   }
 END
 ```
 
 **Preconditions:**
-- `tenantId` corresponds to an existing tenant
+- `tenant_id` corresponds to an existing tenant
 - `limit` is between 1 and 100
 
 **Postconditions:**
 - Returns only account types belonging to the specified tenant
 - Pagination cursor provided if more items exist
-- Items ordered by sort key (accountTypeId)
+- Items ordered by sort key (account_type_id)
 
 **Loop Invariants:** N/A (DynamoDB handles iteration internally via repository)
 
 ### CRUD - Update Account Type (UpdateAccountTypeUseCase.execute)
 
 ```pascal
-ALGORITHM UpdateAccountTypeUseCase.execute(tenantId: TenantId, accountTypeId: AccountTypeId, input: UpdateAccountTypeInputDTO)
-INPUT: tenantId of type TenantId, accountTypeId of type AccountTypeId, input of type UpdateAccountTypeInputDTO {name?, description?, config?, status?}
+ALGORITHM UpdateAccountTypeUseCase.execute(tenant_id: tenant_id, account_type_id: account_type_id, input: UpdateAccountTypeInputDTO)
+INPUT: tenant_id of type tenant_id, account_type_id of type account_type_id, input of type UpdateAccountTypeInputDTO {name?, description?, config?, status?}
 OUTPUT: result of type AccountTypeOutputDTO OR Error
 
 BEGIN
   // --- Use Case Orchestration (via Ports) ---
   
   // Step 1: Verify item exists and belongs to tenant
-  existing ← this.accountTypeRepository.find_by_id(tenantId, accountTypeId)
+  existing ← this.account_type_repository.find_by_id(tenant_id, account_type_id)
   
   IF existing IS NULL THEN
     RETURN Error("Account type not found")
@@ -1674,7 +1705,7 @@ BEGIN
   
   // Step 2: If name changed, check uniqueness
   IF input.name IS NOT NULL AND LOWERCASE(input.name) != LOWERCASE(existing.name) THEN
-    duplicate ← this.accountTypeRepository.find_by_name_in_tenant(tenantId, LOWERCASE(input.name))
+    duplicate ← this.account_type_repository.find_by_name_in_tenant(tenant_id, LOWERCASE(input.name))
     
     IF duplicate IS NOT NULL THEN
       RETURN Error("Account type name already exists in this tenant")
@@ -1687,10 +1718,10 @@ BEGIN
   IF input.description IS NOT NULL THEN existing.description = input.description END IF
   IF input.config IS NOT NULL THEN existing.config = input.config END IF
   IF input.status IS NOT NULL THEN existing.status = input.status END IF
-  existing.updatedAt = ISO8601(NOW())
+  existing.updated_at = ISO8601(NOW())
   
   // Step 4: Persist via repository port
-  updated ← this.accountTypeRepository.update(existing)
+  updated ← this.account_type_repository.update(existing)
   
   // --- Return Output DTO ---
   RETURN AccountTypeOutputDTO(updated)
@@ -1703,29 +1734,29 @@ END
 
 **Postconditions:**
 - Only specified fields are updated
-- `updatedAt` timestamp refreshed
+- `updated_at` timestamp refreshed
 - GSI1 updated if name changed (handled by repository)
-- Original `createdAt` preserved
+- Original `created_at` preserved
 
 ### CRUD - Delete Account Type (DeleteAccountTypeUseCase.execute)
 
 ```pascal
-ALGORITHM DeleteAccountTypeUseCase.execute(tenantId: TenantId, accountTypeId: AccountTypeId)
-INPUT: tenantId of type TenantId, accountTypeId of type AccountTypeId
+ALGORITHM DeleteAccountTypeUseCase.execute(tenant_id: tenant_id, account_type_id: account_type_id)
+INPUT: tenant_id of type tenant_id, account_type_id of type account_type_id
 OUTPUT: Void OR Error
 
 BEGIN
   // --- Use Case Orchestration (via Ports) ---
   
   // Step 1: Verify item exists
-  existing ← this.accountTypeRepository.find_by_id(tenantId, accountTypeId)
+  existing ← this.accountTypeRepository.find_by_id(tenant_id, account_type_id)
   
   IF existing IS NULL THEN
     RETURN Error("Account type not found")
   END IF
   
   // Step 2: Check if any active members are using this account type
-  activeCount ← this.memberRepository.count_active_by_account_type(tenantId, LOWERCASE(existing.name))
+  activeCount ← this.memberRepository.count_active_by_account_type(tenant_id, LOWERCASE(existing.name))
   
   IF activeCount > 0 THEN
     RETURN Error("Cannot delete account type: active members are using it")
@@ -1733,7 +1764,7 @@ BEGIN
   
   // Step 3: Soft delete - update domain entity status
   existing.status = "inactive"
-  existing.updatedAt = ISO8601(NOW())
+  existing.updated_at = ISO8601(NOW())
   
   this.accountTypeRepository.update(existing)
   
@@ -1748,8 +1779,8 @@ END
 **Postconditions:**
 - Account type marked as inactive (soft delete) only if no active members use it
 - Record preserved for audit trail
-- `updatedAt` timestamp refreshed
-- Existing members with this accountType are NOT affected
+- `updated_at` timestamp refreshed
+- Existing members with this account_type are NOT affected
 
 ### Tenant Guard Middleware (Interface Adapters Layer)
 
@@ -1759,7 +1790,7 @@ INPUT: event of type APIGatewayEvent, requiredPermission of type String
 OUTPUT: TenantContext OR Error
 
 BEGIN
-  // Step 1: Extract and validate JWT via IAuthService
+  // Step 1: Extract and validate JWT via ICognitoService
   authHeader ← event.headers["Authorization"]
   
   IF authHeader IS NULL OR NOT starts_with(authHeader, "Bearer ") THEN
@@ -1775,33 +1806,33 @@ BEGIN
   END IF
   
   // Step 2: Validate tenant access
-  tenantId ← payload.tenantId
+  tenant_id ← payload.tenant_id
   
-  IF tenantId IS NULL THEN
+  IF tenant_id IS NULL THEN
     RETURN Error(403, "No tenant context in token")
   END IF
   
   // Step 3: Validate role permissions
-  userRoles ← payload.roles
-  hasPermission ← FALSE
+  user_roles ← payload.roles
+  has_permission ← FALSE
   
-  FOR EACH role IN userRoles DO
+  FOR EACH role IN user_roles DO
     permissions ← ROLES[role]
     IF requiredPermission IN permissions THEN
-      hasPermission ← TRUE
+      has_permission ← TRUE
       EXIT FOR
     END IF
   END FOR
   
-  IF NOT hasPermission THEN
+  IF NOT has_permission THEN
     RETURN Error(403, "Insufficient permissions")
   END IF
   
   // Step 4: Return tenant context
   RETURN TenantContext {
-    userId: payload.userId,
-    tenantId: tenantId,
-    roles: userRoles,
+    user_id: payload.user_id,
+    tenant_id: tenant_id,
+    roles: user_roles,
     email: payload.email
   }
 END
@@ -1809,7 +1840,7 @@ END
 
 **Preconditions:**
 - Request contains Authorization header with Bearer token
-- IAuthService is available for token verification
+- ICognitoService is available for token verification
 
 **Postconditions:**
 - Returns authenticated tenant context if valid
@@ -1825,7 +1856,7 @@ END
 ```pascal
 ALGORITHM RefreshTokenUseCase.execute(refreshToken: String)
 INPUT: refreshToken of type String
-OUTPUT: result of type TokenPair OR Error
+OUTPUT: result of type token_pair OR Error
 
 BEGIN
   ASSERT refreshToken IS NOT empty
@@ -1845,25 +1876,25 @@ BEGIN
   END IF
   
   // Step 2: Get user and roles via ports
-  userId ← session.userId
-  roles ← this.userRepository.get_roles_for_tenant(userId, session.tenantId)
+  user_id ← session.user_id
+  roles ← this.userRepository.get_roles_for_tenant(user_id, session.tenant_id)
   
   // Step 3: Generate new token pair via auth service port
-  roleNames ← EXTRACT roleName FROM roles
-  newTokenPair ← this.authService.generate_token_pair(userId, session.tenantId, session.email, roleNames)
+  role_names ← EXTRACT role_name FROM roles
+  new_token_pair ← this.authService.generate_token_pair(user_id, session.tenant_id, session.email, role_names)
   
   // Step 4: Rotate refresh token atomically via session port
-  newRefreshTokenHash ← this.authService.hash_token(newTokenPair.refreshToken)
-  newSession ← Session.create(userId, session.tenantId, newRefreshTokenHash, NOW() + 86400 * 7)
+  newRefreshTokenHash ← this.authService.hash_token(new_token_pair.refreshToken)
+  newSession ← Session.create(user_id, session.tenant_id, newRefreshTokenHash, NOW() + 86400 * 7)
   
   this.sessionRepository.rotate_token(session, newSession)
   
-  RETURN TokenPair(newTokenPair.accessToken, newTokenPair.refreshToken)
+  RETURN token_pair(new_token_pair.accessToken, new_token_pair.refreshToken)
 END
 ```
 
 **Preconditions:**
-- `refreshToken` is a valid, non-expired token stored via ISessionRepository
+- `refreshToken` is a valid, non-expired token stored via ICognitoService
 
 **Postconditions:**
 - Old refresh token invalidated
@@ -1911,7 +1942,7 @@ PROCEDURE validate_account_type_input(data)
 
 ```pascal
 PROCEDURE validate_registration_input(data)
-  INPUT: data of type RegistrationInput {email, password, fullName, tenantId, accountType?}
+  INPUT: data of type RegistrationInput {email, password, full_name, tenant_id, account_type?}
   OUTPUT: validationResult of type {valid: Boolean, errors: List[String]}
 ```
 
@@ -1922,8 +1953,8 @@ PROCEDURE validate_registration_input(data)
 - Returns `valid = true` if:
   - email is valid format
   - password is >= 8 characters
-  - fullName is non-empty and <= 200 characters
-  - tenantId is non-empty
+  - full_name is non-empty and <= 200 characters
+  - tenant_id is non-empty
 - Returns list of specific error messages for each invalid field
 - No mutations to input data
 
@@ -1931,7 +1962,7 @@ PROCEDURE validate_registration_input(data)
 
 ```pascal
 PROCEDURE validate_member_input(data)
-  INPUT: data of type CreateMemberInput {email, fullName, accountType, roles}
+  INPUT: data of type CreateMemberInput {email, full_name, account_type, roles}
   OUTPUT: validationResult of type {valid: Boolean, errors: List[String]}
 ```
 
@@ -1941,8 +1972,8 @@ PROCEDURE validate_member_input(data)
 **Postconditions:**
 - Returns `valid = true` if:
   - email is valid format
-  - fullName is non-empty and <= 200 characters
-  - accountType is non-empty
+  - full_name is non-empty and <= 200 characters
+  - account_type is non-empty
   - roles is non-empty array of valid role names
 - Returns list of specific error messages for each invalid field
 - No mutations to input data
@@ -1955,7 +1986,7 @@ SEQUENCE
   // --- Controller Layer ---
   event ← APIGateway.receive()
   registrationData ← MapRequestToDTO(event.body)
-  // registrationData = { email: "juan@example.com", password: "SecurePass123!", fullName: "Juan Pérez", tenantId: "club-deportivo-norte-uuid", accountType: "socio" }
+  // registrationData = { email: "juan@example.com", password: "SecurePass123!", full_name: "Juan Pérez", tenant_id: "club-deportivo-norte-uuid", account_type: "socio" }
   
   // --- Use Case Layer ---
   result ← registerUseCase.execute(registrationData)
@@ -1963,7 +1994,7 @@ SEQUENCE
   // --- Controller Response ---
   IF result IS Success THEN
     RETURN response(201, {
-      userId: result.userId,
+      user_id: result.user_id,
       accessToken: result.accessToken,
       refreshToken: result.refreshToken
     })
@@ -1983,10 +2014,10 @@ SEQUENCE
   
   // --- Controller Layer ---
   memberInput ← MapRequestToDTO(event.body)
-  // memberInput = { email: "profesora.garcia@example.com", fullName: "María García", accountType: "profesional", roles: ["manager"], metadata: { specialty: "natación" } }
+  // memberInput = { email: "profesora.garcia@example.com", full_name: "María García", account_type: "profesional", roles: ["manager"], metadata: { specialty: "natación" } }
   
   // --- Use Case Layer ---
-  result ← createMemberUseCase.execute(context.tenantId, memberInput, context.userId)
+  result ← createMemberUseCase.execute(context.tenant_id, memberInput, context.user_id)
   
   // --- Controller Response ---
   IF result IS Error THEN
@@ -2016,18 +2047,18 @@ SEQUENCE
   END IF
 END SEQUENCE
 
-// Example 4: List members by accountType (Controller → UseCase → Port)
+// Example 4: List members by account_type (Controller → UseCase → Port)
 SEQUENCE
   // --- Middleware ---
   context ← tenantGuardMiddleware.validate(event, "read")
   IF context IS Error THEN RETURN response(context.statusCode, context.message) END IF
   
   // --- Controller ---
-  filters ← { accountType: event.queryParams.accountType, status: "active" }
+  filters ← { account_type: event.queryParams.account_type, status: "active" }
   pagination ← { limit: 20, lastKey: event.queryParams.cursor OR NULL }
   
   // --- Use Case ---
-  result ← listMembersUseCase.execute(context.tenantId, filters, pagination)
+  result ← listMembersUseCase.execute(context.tenant_id, filters, pagination)
   
   RETURN response(200, result)
 END SEQUENCE
@@ -2041,7 +2072,7 @@ SEQUENCE
   input ← { name: "Premium", description: "Cuenta premium con beneficios extras", config: { maxUsers: 50 } }
   
   // --- Use Case handles business logic ---
-  result ← createAccountTypeUseCase.execute(context.tenantId, input)
+  result ← createAccountTypeUseCase.execute(context.tenant_id, input)
   
   IF result IS Error THEN
     RETURN response(400, { error: result.message })
@@ -2055,19 +2086,19 @@ SEQUENCE
   context ← tenantGuardMiddleware.validate(event, "read")
   pagination ← { limit: 20, lastKey: event.queryParams.cursor OR NULL }
   
-  result ← listAccountTypesUseCase.execute(context.tenantId, pagination)
+  result ← listAccountTypesUseCase.execute(context.tenant_id, pagination)
   RETURN response(200, result)
 END SEQUENCE
 
-// Example 7: Update member accountType (Controller → UseCase → Ports)
+// Example 7: Update member account_type (Controller → UseCase → Ports)
 SEQUENCE
   context ← tenantGuardMiddleware.validate(event, "manage_members")
   IF context IS Error THEN RETURN response(context.statusCode, context.message) END IF
   
-  updateInput ← { accountType: "profesional" }
-  memberIdVO ← MemberId.create(event.pathParams.memberId)
+  updateInput ← { account_type: "profesional" }
+  memberIdVO ← member_id.create(event.pathParams.member_id)
   
-  result ← updateMemberUseCase.execute(context.tenantId, memberIdVO, updateInput)
+  result ← updateMemberUseCase.execute(context.tenant_id, memberIdVO, updateInput)
   
   IF result IS Error THEN
     RETURN response(400, { error: result.message })
@@ -2081,8 +2112,8 @@ SEQUENCE
   context ← tenantGuardMiddleware.validate(event, "manage_members")
   IF context IS Error THEN RETURN response(context.statusCode, context.message) END IF
   
-  memberIdVO ← MemberId.create(event.pathParams.memberId)
-  result ← deactivateMemberUseCase.execute(context.tenantId, memberIdVO)
+  memberIdVO ← member_id.create(event.pathParams.member_id)
+  result ← deactivateMemberUseCase.execute(context.tenant_id, memberIdVO)
   
   IF result IS Error THEN
     RETURN response(404, { error: result.message })
@@ -2098,7 +2129,7 @@ END SEQUENCE
 
 ### Property 1: Tenant Data Isolation
 
-*For any* two distinct tenants T1 and T2, the set of account types visible to T1 and the set visible to T2 are completely disjoint, and the set of members visible to T1 and the set visible to T2 are completely disjoint. Every authenticated data query uses the tenantId extracted from the JWT token payload as a mandatory filter.
+*For any* two distinct tenants T1 and T2, the set of account types visible to T1 and the set visible to T2 are completely disjoint, and the set of members visible to T1 and the set visible to T2 are completely disjoint. Every authenticated data query uses the tenant_id extracted from the JWT token payload as a mandatory filter.
 
 ```pascal
 FOR ALL request R, tenant T1, tenant T2
@@ -2106,7 +2137,7 @@ FOR ALL request R, tenant T1, tenant T2
   ASSERT accountTypesVisibleTo(R, T1) INTERSECTION accountTypesVisibleTo(R, T2) = EMPTY
   AND membersVisibleTo(R, T1) INTERSECTION membersVisibleTo(R, T2) = EMPTY
   AND sessionsVisibleTo(R, T1) INTERSECTION sessionsVisibleTo(R, T2) = EMPTY
-  AND IF R.jwt.tenantId != resource.tenantId THEN response = 403
+  AND IF R.jwt.tenant_id != resource.tenant_id THEN response = 403
 ```
 
 **Validates: Requirements 9.1, 9.2, 9.3, 9.4**
@@ -2137,12 +2168,12 @@ FOR ALL user U, action A, tenant T
 
 **Validates: Requirements 10.1, 10.2, 10.3, 10.5, 10.6**
 
-### Property 4: AccountType Name Uniqueness per Tenant
+### Property 4: account_type Name Uniqueness per Tenant
 
 *For any* single tenant, no two account types (regardless of status) can share the same name when compared case-insensitively.
 
 ```pascal
-FOR ALL accountType AT1, accountType AT2 IN same tenant T
+FOR ALL account_type AT1, account_type AT2 IN same tenant T
   ASSERT IF AT1.id != AT2.id THEN LOWERCASE(AT1.name) != LOWERCASE(AT2.name)
 ```
 
@@ -2150,18 +2181,18 @@ FOR ALL accountType AT1, accountType AT2 IN same tenant T
 
 ### Property 5: Soft Delete Preservation
 
-*For any* account type deletion or member deactivation, the operation sets status to "inactive" but the record remains fully retrievable from the database for audit purposes, with updatedAt refreshed.
+*For any* account type deletion or member deactivation, the operation sets status to "inactive" but the record remains fully retrievable from the database for audit purposes, with updated_at refreshed.
 
 ```pascal
-FOR ALL accountType AT
+FOR ALL account_type AT
   ASSERT IF delete(AT) succeeds THEN
     AT.status = "inactive" AND AT record still exists in database
-    AND AT.updatedAt is refreshed
+    AND AT.updated_at is refreshed
 
 FOR ALL member M
   ASSERT IF deactivate(M) succeeds THEN
     M.status = "inactive" AND M record still exists in database with all historical fields
-    AND M.updatedAt is refreshed
+    AND M.updated_at is refreshed
 ```
 
 **Validates: Requirements 5.6, 8.1, 8.4**
@@ -2183,14 +2214,14 @@ FOR ALL refreshToken RT
 
 **Validates: Requirements 2.1, 2.4, 2.5, 12.4**
 
-### Property 7: Member-AccountType Referential Integrity
+### Property 7: Member-account_type Referential Integrity
 
-*For any* member creation or update operation, the specified accountType must reference an existing, active AccountType entity within the same tenant. Operations with non-existent or inactive account types are rejected.
+*For any* member creation or update operation, the specified account_type must reference an existing, active account_type entity within the same tenant. Operations with non-existent or inactive account types are rejected.
 
 ```pascal
-FOR ALL member operation OP (create or update) with accountType AT in tenant T
+FOR ALL member operation OP (create or update) with account_type AT in tenant T
   ASSERT IF OP succeeds THEN
-    EXISTS accountType record ATR IN T
+    EXISTS account_type record ATR IN T
     WHERE LOWERCASE(ATR.name) = LOWERCASE(AT)
     AND ATR.status = "active"
   AND IF ATR does not exist THEN OP fails with "Account type does not exist in this tenant"
@@ -2207,9 +2238,9 @@ FOR ALL member operation OP (create or update) with accountType AT in tenant T
 FOR ALL registration attempt REG
   ASSERT IF register(REG) succeeds THEN
     EXISTS User U AND TenantMembership TM AND Member M AND Role R
-    WHERE U.userId = TM.userId = M.userId
-    AND TM.tenantId = M.tenantId
-    AND M.accountType IS valid
+    WHERE U.user_id = TM.user_id = M.user_id
+    AND TM.tenant_id = M.tenant_id
+    AND M.account_type IS valid
     AND (IF REG is self-registration THEN EXISTS Session S for U)
   AND IF register(REG) fails THEN
     NO new User, TenantMembership, Member, Role, or Session records are created
@@ -2217,26 +2248,26 @@ FOR ALL registration attempt REG
 
 **Validates: Requirements 3.1, 3.7, 4.1, 4.2, 12.1, 12.2, 12.3**
 
-### Property 9: AccountType Deletion Protection
+### Property 9: account_type Deletion Protection
 
 *For any* account type, deletion (soft-delete) succeeds only when zero active members reference that account type.
 
 ```pascal
-FOR ALL accountType AT
+FOR ALL account_type AT
   ASSERT IF delete(AT) succeeds THEN
-    NOT EXISTS member M WHERE M.accountTypeId = AT.accountTypeId AND M.status = "active"
+    NOT EXISTS member M WHERE M.account_type_id = AT.account_type_id AND M.status = "active"
 ```
 
 **Validates: Requirements 5.7**
 
 ### Property 10: Password Storage Security
 
-*For any* password stored in the system (whether user-provided or system-generated temporary), the stored value is a bcrypt hash with at least 10 salt rounds and never equals the plain-text input. Temporary passwords are at least 16 characters and cryptographically random.
+*For any* password stored in the system (whether user-provided or system-generated temporary), the stored value is a Cognito hash with at least 10 salt rounds and never equals the plain-text input. Temporary passwords are at least 16 characters and cryptographically random.
 
 ```pascal
 FOR ALL password P stored in database
   ASSERT P != plaintext_input
-  AND P is a valid bcrypt hash with salt_rounds >= 10
+  AND P is a valid Cognito hash with salt_rounds >= 10
   AND IF P is a temporary password THEN length(plaintext) >= 16
 
 FOR ALL responses and logs
@@ -2252,7 +2283,7 @@ FOR ALL responses and logs
 ```pascal
 FOR ALL member M, tenant T
   ASSERT IF deactivate(M) in T succeeds THEN
-    NOT EXISTS session S WHERE S.userId = M.userId AND S.tenantId = T
+    NOT EXISTS session S WHERE S.user_id = M.user_id AND S.tenant_id = T
 ```
 
 **Validates: Requirements 8.1, 14.3**
@@ -2270,26 +2301,26 @@ FOR ALL successful login or refresh L for user U in tenant T
 
 ### Property 13: Self-Registration Gate
 
-*For any* self-registration attempt, the operation succeeds only when the target tenant exists, is active, and has allowSelfRegistration set to true.
+*For any* self-registration attempt, the operation succeeds only when the target tenant exists, is active, and has allow_self_registration set to true.
 
 ```pascal
 FOR ALL self-registration SR targeting tenant T
   ASSERT IF SR succeeds THEN
-    T EXISTS AND T.status = "active" AND T.allowSelfRegistration = true
+    T EXISTS AND T.status = "active" AND T.allow_self_registration = true
 ```
 
 **Validates: Requirements 3.3, 3.4, 3.5**
 
-### Property 14: Default AccountType Assignment
+### Property 14: Default account_type Assignment
 
-*For any* self-registration where the user does not specify an accountType, the system assigns the tenant's defaultAccountType; if that is null or references an inactive account type, "usuario" is used as fallback.
+*For any* self-registration where the user does not specify an account_type, the system assigns the tenant's default_account_type; if that is null or references an inactive account type, "usuario" is used as fallback.
 
 ```pascal
-FOR ALL self-registration SR WHERE SR.accountType IS NULL
-  ASSERT IF SR.tenant.defaultAccountType IS NOT NULL AND defaultAccountType IS active THEN
-    member(SR).accountType = SR.tenant.defaultAccountType
+FOR ALL self-registration SR WHERE SR.account_type IS NULL
+  ASSERT IF SR.tenant.default_account_type IS NOT NULL AND default_account_type IS active THEN
+    member(SR).account_type = SR.tenant.default_account_type
   ELSE
-    member(SR).accountType = "usuario"
+    member(SR).account_type = "usuario"
 ```
 
 **Validates: Requirements 3.6**
@@ -2309,21 +2340,21 @@ FOR ALL registration SR WHERE email(SR) EXISTS in database
 
 ### Property 16: Member Update Preserves Immutable Fields
 
-*For any* member update operation, the createdAt timestamp, registrationType, and invitedBy fields are never modified, while updatedAt is always refreshed.
+*For any* member update operation, the created_at timestamp, registration_type, and invited_by fields are never modified, while updated_at is always refreshed.
 
 ```pascal
 FOR ALL member update U on member M
-  ASSERT after(U).createdAt = before(U).createdAt
-  AND after(U).registrationType = before(U).registrationType
-  AND after(U).invitedBy = before(U).invitedBy
-  AND after(U).updatedAt > before(U).updatedAt
+  ASSERT after(U).created_at = before(U).created_at
+  AND after(U).registration_type = before(U).registration_type
+  AND after(U).invited_by = before(U).invited_by
+  AND after(U).updated_at > before(U).updated_at
 ```
 
 **Validates: Requirements 7.3**
 
 ### Property 17: Value Object Validation Gate
 
-*For any* input that fails Value Object validation (invalid email format, email > 254 chars, password < 8 or > 72 chars, empty/non-UUID tenantId, empty/oversized fullName), the system returns a validation error before any business logic or persistence operation executes.
+*For any* input that fails Value Object validation (invalid email format, email > 254 chars, password < 8 or > 72 chars, empty/non-UUID tenant_id, empty/oversized full_name), the system returns a validation error before any business logic or persistence operation executes.
 
 ```pascal
 FOR ALL input I that fails Value Object creation
@@ -2351,12 +2382,12 @@ FOR ALL list query Q with limit L
 
 ### Property 19: Filter Correctness
 
-*For any* member list query with an accountType filter (case-insensitive) or status filter (exact match), every returned member matches the specified filter value.
+*For any* member list query with an account_type filter (case-insensitive) or status filter (exact match), every returned member matches the specified filter value.
 
 ```pascal
 FOR ALL member list query Q with filter F
   ASSERT FOR ALL member M in results(Q):
-    IF F.accountType IS set THEN LOWERCASE(M.accountType) = LOWERCASE(F.accountType)
+    IF F.account_type IS set THEN LOWERCASE(M.account_type) = LOWERCASE(F.account_type)
     AND IF F.status IS set THEN M.status = F.status
 ```
 
@@ -2369,7 +2400,7 @@ FOR ALL member list query Q with filter F
 ```pascal
 FOR ALL member deactivation D of member M in tenant T
   ASSERT user(M).status is unchanged after D
-  AND user(M).passwordHash is unchanged after D
+  AND user(M).cognito_sub is unchanged after D
   AND FOR ALL other tenants T' WHERE T' != T AND user(M) has membership in T':
     membership(user(M), T') is unchanged
 ```
@@ -2383,7 +2414,7 @@ FOR ALL member deactivation D of member M in tenant T
 ```pascal
 FOR ALL logout operation LO with refreshToken RT
   ASSERT IF logout(RT) succeeds THEN
-    NOT EXISTS session S WHERE S.refreshTokenHash = hash(RT)
+    NOT EXISTS session S WHERE S.refresh_token_hash = hash(RT)
     AND subsequent refresh(RT) fails with "Invalid refresh token"
 ```
 
@@ -2403,7 +2434,7 @@ FOR ALL logout operation LO with refreshToken RT
 **Condition**: JWT access token ha expirado
 **Response**: 401 Unauthorized con mensaje "Token expired"
 **Recovery**: Cliente usa refresh token para obtener nuevo access token
-**Layer**: Middleware (Interface Adapters) detects via IAuthService port
+**Layer**: Middleware (Interface Adapters) detects via ICognitoService port
 
 ### Error Scenario 3: Insufficient Permissions
 
@@ -2428,7 +2459,7 @@ FOR ALL logout operation LO with refreshToken RT
 
 ### Error Scenario 6: Tenant Not Found
 
-**Condition**: TenantId en token no corresponde a tenant activo
+**Condition**: tenant_id en token no corresponde a tenant activo
 **Response**: 403 Forbidden
 **Recovery**: Re-autenticar o contactar soporte
 **Layer**: Use Case validates via ITenantRepository port
@@ -2442,30 +2473,30 @@ FOR ALL logout operation LO with refreshToken RT
 
 ### Error Scenario 8: Self-Registration Not Allowed
 
-**Condition**: Tenant tiene `allowSelfRegistration = false` y usuario intenta auto-registro
+**Condition**: Tenant tiene `allow_self_registration = false` y usuario intenta auto-registro
 **Response**: 403 Forbidden con mensaje "Self-registration is not allowed for this institution"
 **Recovery**: Usuario debe solicitar invitación de un admin
 **Layer**: Use Case validates tenant configuration via ITenantRepository port
 
-### Error Scenario 9: Invalid AccountType for Member
+### Error Scenario 9: Invalid account_type for Member
 
-**Condition**: Se intenta crear/actualizar un miembro con un accountType que no existe o está inactivo en el tenant
+**Condition**: Se intenta crear/actualizar un miembro con un account_type que no existe o está inactivo en el tenant
 **Response**: 400 Bad Request con mensaje "Account type does not exist in this tenant"
-**Recovery**: Cliente selecciona un accountType válido
+**Recovery**: Cliente selecciona un account_type válido
 **Layer**: Use Case validates via IAccountTypeRepository port
 
 ### Error Scenario 10: Member Already Exists in Tenant
 
 **Condition**: Admin intenta invitar un usuario que ya es miembro del tenant
 **Response**: 409 Conflict con mensaje "User is already a member of this tenant"
-**Recovery**: Admin puede buscar el miembro existente y actualizar su accountType/roles
+**Recovery**: Admin puede buscar el miembro existente y actualizar su account_type/roles
 **Layer**: Use Case checks via IMemberRepository port
 
-### Error Scenario 11: Cannot Delete AccountType with Active Members
+### Error Scenario 11: Cannot Delete account_type with Active Members
 
-**Condition**: Se intenta eliminar un accountType que tiene miembros activos asignados
+**Condition**: Se intenta eliminar un account_type que tiene miembros activos asignados
 **Response**: 409 Conflict con mensaje "Cannot delete account type: active members are using it"
-**Recovery**: Primero desactivar o reasignar los miembros, luego eliminar el accountType
+**Recovery**: Primero desactivar o reasignar los miembros, luego eliminar el account_type
 **Layer**: Use Case checks via IMemberRepository.count_active_by_account_type port
 
 ### Error Mapping Strategy (Interface Adapters Layer)
@@ -2490,30 +2521,30 @@ END
 
 ### Unit Testing Approach (Domain & Application Layers)
 
-- Validar lógica de Value Objects (Email, Password, TenantId) — **Domain layer, no mocks**
+- Validar lógica de Value Objects (Email, Password, tenant_id) — **Domain layer, no mocks**
 - Verificar reglas de negocio en entities — **Domain layer, no mocks**
 - Testear Use Cases con mocks de los ports — **Application layer, mock IUserRepository, IMemberRepository, etc.**
 - Validar input sanitization y validation rules — **Domain layer**
 - Testear role permission checking logic — **Domain/Application layer**
 - Validar lógica de registro (self y invited) — **Application layer con mocks**
-- Testear validación de accountType en operaciones de miembros — **Application layer con mocks**
+- Testear validación de account_type en operaciones de miembros — **Application layer con mocks**
 - Verificar atomicidad de transacciones (mock repository ports) — **Application layer**
 
 **Nota Clean Architecture:** Los unit tests de Use Cases SOLO mockean los ports (interfaces). Nunca se mockea DynamoDB directamente en esta capa.
 
 ### Property-Based Testing Approach
 
-**Property Test Library**: fast-check (JavaScript/TypeScript)
+**Property Test Library**: hypothesis (Python)
 
 Properties a verificar:
 - Tenant isolation: operaciones nunca filtran datos cross-tenant
 - Key generation: siempre produce keys válidas y únicas (Infrastructure layer test)
 - Role hierarchy: admin siempre tiene permisos de manager y viewer
 - Pagination: todos los items se recuperan eventualmente iterando páginas
-- Member-AccountType consistency: todo miembro activo tiene accountType válido
+- Member-account_type consistency: todo miembro activo tiene account_type válido
 - Registration atomicity: registro nunca deja registros parciales
-- AccountType deletion: no se puede eliminar si hay miembros activos usándolo
-- Value Object invariants: Email, Password, TenantId siempre válidos después de creación
+- account_type deletion: no se puede eliminar si hay miembros activos usándolo
+- Value Object invariants: Email, Password, tenant_id siempre válidos después de creación
 - Dependency rule: ningún import cruza la frontera de capas incorrectamente
 
 ### Integration Testing Approach (Infrastructure Layer)
@@ -2527,7 +2558,7 @@ Properties a verificar:
 - Test member management (create, list, filter, update, deactivate)
 - Test rate limiting y throttling behavior
 
-**Nota Clean Architecture:** Los integration tests validan que las implementaciones concretas (DynamoDBUserRepository, JwtAuthService) satisfacen correctamente los contratos definidos por los ports.
+**Nota Clean Architecture:** Los integration tests validan que las implementaciones concretas (DynamoDBUserRepository, CognitoAuthService) satisfacen correctamente los contratos definidos por los ports.
 
 ## Performance Considerations
 
@@ -2536,24 +2567,24 @@ Properties a verificar:
 - **Token Size**: Mantener JWT payload mínimo para reducir overhead en cada request
 - **Connection Reuse**: Reusar conexiones DynamoDB entre invocaciones Lambda (keep-alive). El DynamoDB client se instancia una vez en el Composition Root.
 - **Pagination**: Límite máximo de 100 items por página para evitar timeouts
-- **GSI Design**: GSIs diseñados para evitar hot partitions distribuyendo por tenantId
+- **GSI Design**: GSIs diseñados para evitar hot partitions distribuyendo por tenant_id
 - **Transaction Size**: Registros usan TransactWriteItems (máx 25 items) - registro crea 4 items, bien dentro del límite
-- **Member Queries**: GSI1 optimizado para filtrado por accountType sin necesidad de FilterExpression costoso
+- **Member Queries**: GSI1 optimizado para filtrado por account_type sin necesidad de FilterExpression costoso
 - **Clean Architecture Overhead**: La indirección de capas tiene costo mínimo en runtime (resolución de interfaces en cold start), pero mejora significativamente testabilidad y mantenibilidad
 
 ## Security Considerations
 
-- **Password Storage**: bcrypt con salt rounds >= 10 (implementado en IAuthService, inyectado vía port)
+- **Password Storage**: Delegado completamente a AWS Cognito (implementado en ICognitoService, inyectado vía port)
 - **JWT Secrets**: Almacenados en AWS Secrets Manager, rotados periódicamente (Infrastructure concern)
 - **Token Expiry**: Access token 1h, refresh token 7d con rotación
 - **CORS**: Configurar origins permitidos por tenant
 - **Input Validation**: Sanitizar todos los inputs via Value Objects en Domain layer antes de llegar a Use Cases
 - **Rate Limiting**: Máximo 5 login attempts por minuto por IP/email. Máximo 10 registros por hora por IP.
-- **Tenant Isolation**: Validación a nivel de middleware (Interface Adapters), imposible bypass desde Lambda. Repository implementations siempre requieren tenantId.
+- **Tenant Isolation**: Validación a nivel de middleware (Interface Adapters), imposible bypass desde Lambda. Repository implementations siempre requieren tenant_id.
 - **HTTPS Only**: API Gateway configurado solo con HTTPS
-- **Audit Log**: Registrar todas las operaciones de escritura con userId y timestamp
+- **Audit Log**: Registrar todas las operaciones de escritura con user_id y timestamp
 - **Invitation Security**: Passwords temporales hasheados, usuario debe cambiar en primer login
-- **Self-Registration Control**: Flag `allowSelfRegistration` por tenant permite control granular
+- **Self-Registration Control**: Flag `allow_self_registration` por tenant permite control granular
 - **No Framework Leakage**: Domain entities no exponen detalles de infraestructura (DynamoDB keys, JWT structure)
 
 ## Dependencies
@@ -2562,9 +2593,9 @@ Properties a verificar:
 - **AWS Lambda**: Runtime para funciones serverless — Infrastructure layer
 - **AWS API Gateway**: HTTP API con authorizers — Infrastructure layer
 - **AWS Secrets Manager**: Almacenamiento de JWT secrets — Infrastructure layer
-- **bcrypt**: Hash de passwords — Infrastructure layer (implements IAuthService)
-- **jsonwebtoken (o equivalente)**: Generación/verificación de JWT — Infrastructure layer (implements IAuthService)
+- **boto3**: AWS SDK for Python (DynamoDB + Cognito) � Infrastructure layer
+- **pydantic**: Input validation and DTOs � Domain/Application layer
 - **uuid**: Generación de identificadores únicos — Domain/Infrastructure layer
 - **DynamoDB Local**: Para desarrollo y testing local — Infrastructure layer (testing)
-- **fast-check**: Property-based testing library — Testing
-- **jest/vitest**: Unit & integration test runner — Testing
+- **hypothesis**: Property-based testing library — Testing
+- **pytest/pytest**: Unit & integration test runner — Testing
