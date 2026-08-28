@@ -7,7 +7,7 @@ Provides handlers for:
 - handle_deactivate: Deactivate a member (DELETE /members/{member_id})
 
 Each handler follows the pattern:
-1. Validate auth via TenantGuard
+1. Validate auth via AuthGuard
 2. Check permissions via RoleGuard
 3. Parse request
 4. Call use case
@@ -35,7 +35,7 @@ from domain.errors.domain_error import DomainError
 from domain.errors.not_found_error import NotFoundError
 from domain.errors.validation_error import ValidationError
 from interfaces.http.middleware.role_guard_middleware import check_permission
-from interfaces.http.middleware.tenant_guard_middleware import TenantContext, TenantGuardMiddleware
+from interfaces.http.middleware.auth_guard_middleware import AuthContext, AuthGuardMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +52,13 @@ class MemberController:
         list_members_use_case: ListMembersUseCase,
         update_member_use_case: UpdateMemberUseCase,
         deactivate_member_use_case: DeactivateMemberUseCase,
-        tenant_guard: TenantGuardMiddleware,
+        auth_guard: AuthGuardMiddleware,
     ) -> None:
         self._invite_user_use_case = invite_user_use_case
         self._list_members_use_case = list_members_use_case
         self._update_member_use_case = update_member_use_case
         self._deactivate_member_use_case = deactivate_member_use_case
-        self._tenant_guard = tenant_guard
+        self._auth_guard = auth_guard
 
     # ──── Handlers ────────────────────────────────────────────────────────────
 
@@ -73,9 +73,9 @@ class MemberController:
         Returns:
             201 with created member data, or error response.
         """
-        # 1. Validate auth via TenantGuard
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        # 1. Validate auth via AuthGuard
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Check permissions
@@ -133,9 +133,9 @@ class MemberController:
         Returns:
             200 with paginated member list, or error response.
         """
-        # 1. Validate auth via TenantGuard
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        # 1. Validate auth via AuthGuard
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Check permissions
@@ -186,9 +186,9 @@ class MemberController:
         Returns:
             200 with updated member data, or error response.
         """
-        # 1. Validate auth via TenantGuard
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        # 1. Validate auth via AuthGuard
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Check permissions
@@ -249,9 +249,9 @@ class MemberController:
         Returns:
             204 with no content on success, or error response.
         """
-        # 1. Validate auth via TenantGuard
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        # 1. Validate auth via AuthGuard
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Check permissions

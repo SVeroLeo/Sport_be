@@ -17,12 +17,12 @@ from interfaces.http.middleware.role_guard_middleware import (
     check_permission,
     require_permission,
 )
-from interfaces.http.middleware.tenant_guard_middleware import TenantContext
+from interfaces.http.middleware.auth_guard_middleware import AuthContext
 
 
-def _make_context(roles: list[str]) -> TenantContext:
-    """Helper to build a TenantContext with the given roles."""
-    return TenantContext(
+def _make_context(roles: list[str]) -> AuthContext:
+    """Helper to build an AuthContext with the given roles."""
+    return AuthContext(
         user_id="user-123",
         tenant_id="tenant-456",
         roles=roles,
@@ -242,12 +242,12 @@ class TestForbiddenResponseFormat:
         assert body["message"] == "Insufficient permissions"
 
 
-class TestTenantContextDataclass:
-    """Tests for the TenantContext dataclass."""
+class TestAuthContextDataclass:
+    """Tests for the AuthContext dataclass."""
 
-    def test_create_tenant_context(self) -> None:
-        """TenantContext can be created with all required fields."""
-        ctx = TenantContext(
+    def test_create_auth_context(self) -> None:
+        """AuthContext can be created with all required fields."""
+        ctx = AuthContext(
             user_id="user-1",
             tenant_id="tenant-1",
             roles=["admin"],
@@ -258,9 +258,9 @@ class TestTenantContextDataclass:
         assert ctx.roles == ["admin"]
         assert ctx.email == "admin@example.com"
 
-    def test_tenant_context_is_frozen(self) -> None:
-        """TenantContext is immutable (frozen dataclass)."""
-        ctx = TenantContext(
+    def test_auth_context_is_frozen(self) -> None:
+        """AuthContext is immutable (frozen dataclass)."""
+        ctx = AuthContext(
             user_id="user-1",
             tenant_id="tenant-1",
             roles=["admin"],

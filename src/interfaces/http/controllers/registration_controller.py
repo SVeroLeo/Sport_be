@@ -35,7 +35,7 @@ class RegistrationController:
     delegates to RegisterUseCase, and maps the result or domain
     errors to appropriate HTTP responses.
 
-    This is a public endpoint — no TenantGuard middleware required.
+    This is a public endpoint — no AuthGuard middleware required.
     """
 
     def __init__(self, register_use_case: RegisterUseCase) -> None:

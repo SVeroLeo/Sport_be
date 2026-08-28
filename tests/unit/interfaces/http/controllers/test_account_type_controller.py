@@ -23,16 +23,16 @@ from domain.errors.domain_error import DomainError
 from domain.errors.not_found_error import NotFoundError
 from domain.errors.validation_error import ValidationError
 from interfaces.http.controllers.account_type_controller import AccountTypeController
-from interfaces.http.middleware.tenant_guard_middleware import TenantContext
+from interfaces.http.middleware.auth_guard_middleware import AuthContext
 
 
 # ──── Fixtures ────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
-def tenant_context() -> TenantContext:
-    """A valid tenant context representing an admin user."""
-    return TenantContext(
+def auth_context() -> AuthContext:
+    """A valid auth context representing an admin user."""
+    return AuthContext(
         user_id="user-123",
         tenant_id="550e8400-e29b-41d4-a716-446655440000",
         roles=["admin"],
@@ -41,10 +41,10 @@ def tenant_context() -> TenantContext:
 
 
 @pytest.fixture
-def mock_tenant_guard(tenant_context: TenantContext) -> MagicMock:
-    """TenantGuardMiddleware that always returns a valid TenantContext."""
+def mock_auth_guard(auth_context: AuthContext) -> MagicMock:
+    """AuthGuardMiddleware that always returns a valid AuthContext."""
     guard = MagicMock()
-    guard.validate.return_value = tenant_context
+    guard.validate.return_value = auth_context
     return guard
 
 
@@ -74,7 +74,7 @@ def mock_delete_use_case() -> AsyncMock:
 
 @pytest.fixture
 def controller(
-    mock_tenant_guard: MagicMock,
+    mock_auth_guard: MagicMock,
     mock_create_use_case: AsyncMock,
     mock_list_use_case: AsyncMock,
     mock_update_use_case: AsyncMock,
@@ -82,7 +82,7 @@ def controller(
 ) -> AccountTypeController:
     """Create an AccountTypeController with all mocked dependencies."""
     return AccountTypeController(
-        tenant_guard=mock_tenant_guard,
+        auth_guard=mock_auth_guard,
         create_use_case=mock_create_use_case,
         list_use_case=mock_list_use_case,
         update_use_case=mock_update_use_case,
@@ -251,10 +251,10 @@ class TestHandleCreate:
     async def test_unauthenticated_returns_401(
         self,
         controller: AccountTypeController,
-        mock_tenant_guard: MagicMock,
+        mock_auth_guard: MagicMock,
     ) -> None:
-        """TenantGuard returning error dict results in that error being returned."""
-        mock_tenant_guard.validate.return_value = {
+        """AuthGuard returning error dict results in that error being returned."""
+        mock_auth_guard.validate.return_value = {
             "statusCode": 401,
             "headers": {"Content-Type": "application/json"},
             "body": json.dumps({"error": "Missing or invalid authorization header"}),
@@ -269,10 +269,10 @@ class TestHandleCreate:
     async def test_unauthorized_viewer_returns_403(
         self,
         controller: AccountTypeController,
-        mock_tenant_guard: MagicMock,
+        mock_auth_guard: MagicMock,
     ) -> None:
         """Viewer role lacking create permission gets 403."""
-        mock_tenant_guard.validate.return_value = TenantContext(
+        mock_auth_guard.validate.return_value = AuthContext(
             user_id="user-123",
             tenant_id="tenant-456",
             roles=["viewer"],
@@ -291,7 +291,7 @@ class TestHandleCreate:
         mock_create_use_case: AsyncMock,
         sample_output_dto: AccountTypeOutputDTO,
     ) -> None:
-        """The tenant_id from TenantContext is passed to the use case DTO."""
+        """The tenant_id from AuthContext is passed to the use case DTO."""
         mock_create_use_case.execute.return_value = sample_output_dto
         event = {"body": json.dumps({"name": "Socio"}), "headers": {}}
 
@@ -406,11 +406,11 @@ class TestHandleList:
     async def test_viewer_can_list(
         self,
         controller: AccountTypeController,
-        mock_tenant_guard: MagicMock,
+        mock_auth_guard: MagicMock,
         mock_list_use_case: AsyncMock,
     ) -> None:
         """Viewer role has read permission and can list account types (Req 5.4)."""
-        mock_tenant_guard.validate.return_value = TenantContext(
+        mock_auth_guard.validate.return_value = AuthContext(
             user_id="user-123",
             tenant_id="tenant-456",
             roles=["viewer"],
@@ -567,10 +567,10 @@ class TestHandleUpdate:
     async def test_viewer_cannot_update(
         self,
         controller: AccountTypeController,
-        mock_tenant_guard: MagicMock,
+        mock_auth_guard: MagicMock,
     ) -> None:
         """Viewer role cannot update (Req 10.1)."""
-        mock_tenant_guard.validate.return_value = TenantContext(
+        mock_auth_guard.validate.return_value = AuthContext(
             user_id="user-123",
             tenant_id="tenant-456",
             roles=["viewer"],
@@ -661,10 +661,10 @@ class TestHandleDelete:
     async def test_viewer_cannot_delete(
         self,
         controller: AccountTypeController,
-        mock_tenant_guard: MagicMock,
+        mock_auth_guard: MagicMock,
     ) -> None:
         """Viewer role cannot delete (Req 10.1)."""
-        mock_tenant_guard.validate.return_value = TenantContext(
+        mock_auth_guard.validate.return_value = AuthContext(
             user_id="user-123",
             tenant_id="tenant-456",
             roles=["viewer"],

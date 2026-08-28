@@ -4,16 +4,18 @@ from interfaces.http.middleware.role_guard_middleware import (
     check_permission,
     require_permission,
 )
-from interfaces.http.middleware.tenant_guard_middleware import (
-    TenantContext,
-    TenantGuardMiddleware,
+from interfaces.http.middleware.auth_guard_middleware import (
+    AuthContext,
+    AuthGuardMiddleware,
 )
 from interfaces.http.middleware.validation_middleware import validate_request
 
 __all__ = [
-    "TenantContext",
-    "TenantGuardMiddleware",
+    "AuthContext",
+    "AuthGuardMiddleware",
     "check_permission",
     "require_permission",
     "validate_request",
 ]
+
+

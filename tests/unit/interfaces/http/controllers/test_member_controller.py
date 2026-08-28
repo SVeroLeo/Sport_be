@@ -19,16 +19,16 @@ from domain.errors.domain_error import DomainError
 from domain.errors.not_found_error import NotFoundError
 from domain.errors.validation_error import ValidationError
 from interfaces.http.controllers.member_controller import MemberController
-from interfaces.http.middleware.tenant_guard_middleware import TenantContext
+from interfaces.http.middleware.auth_guard_middleware import AuthContext
 
 
 # ──── Fixtures ────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture
-def tenant_context() -> TenantContext:
-    """An authenticated admin tenant context."""
-    return TenantContext(
+def auth_context() -> AuthContext:
+    """An authenticated admin auth context."""
+    return AuthContext(
         user_id="user-123",
         tenant_id="550e8400-e29b-41d4-a716-446655440000",
         roles=["admin"],
@@ -37,9 +37,9 @@ def tenant_context() -> TenantContext:
 
 
 @pytest.fixture
-def viewer_context() -> TenantContext:
+def viewer_context() -> AuthContext:
     """An authenticated viewer tenant context (limited permissions)."""
-    return TenantContext(
+    return AuthContext(
         user_id="user-456",
         tenant_id="550e8400-e29b-41d4-a716-446655440000",
         roles=["viewer"],
@@ -48,10 +48,10 @@ def viewer_context() -> TenantContext:
 
 
 @pytest.fixture
-def mock_tenant_guard(tenant_context: TenantContext) -> MagicMock:
-    """Mock TenantGuardMiddleware that returns a valid admin context."""
+def mock_auth_guard(auth_context: AuthContext) -> MagicMock:
+    """Mock AuthGuardMiddleware that returns a valid admin context."""
     guard = MagicMock()
-    guard.validate.return_value = tenant_context
+    guard.validate.return_value = auth_context
     return guard
 
 
@@ -85,7 +85,7 @@ def controller(
     mock_list_use_case: AsyncMock,
     mock_update_use_case: AsyncMock,
     mock_deactivate_use_case: AsyncMock,
-    mock_tenant_guard: MagicMock,
+    mock_auth_guard: MagicMock,
 ) -> MemberController:
     """Create a MemberController with all mocked dependencies."""
     return MemberController(
@@ -93,7 +93,7 @@ def controller(
         list_members_use_case=mock_list_use_case,
         update_member_use_case=mock_update_use_case,
         deactivate_member_use_case=mock_deactivate_use_case,
-        tenant_guard=mock_tenant_guard,
+        auth_guard=mock_auth_guard,
     )
 
 
@@ -283,7 +283,7 @@ async def test_handle_create_uses_tenant_from_context(
     mock_invite_use_case: AsyncMock,
     member_output: MemberOutputDTO,
 ) -> None:
-    """Create member uses tenant_id from TenantContext, not from body."""
+    """Create member uses tenant_id from AuthContext, not from body."""
     mock_invite_use_case.execute.return_value = member_output
     event = {
         "headers": {"Authorization": "Bearer valid-token"},
@@ -311,7 +311,7 @@ async def test_handle_create_viewer_gets_403(
     mock_list_use_case: AsyncMock,
     mock_update_use_case: AsyncMock,
     mock_deactivate_use_case: AsyncMock,
-    viewer_context: TenantContext,
+    viewer_context: AuthContext,
 ) -> None:
     """Viewer role cannot create members — returns 403."""
     guard = MagicMock()
@@ -321,7 +321,7 @@ async def test_handle_create_viewer_gets_403(
         list_members_use_case=mock_list_use_case,
         update_member_use_case=mock_update_use_case,
         deactivate_member_use_case=mock_deactivate_use_case,
-        tenant_guard=guard,
+        auth_guard=guard,
     )
     event = {
         "headers": {"Authorization": "Bearer valid-token"},
@@ -345,7 +345,7 @@ async def test_handle_create_auth_failure_returns_401(
     mock_update_use_case: AsyncMock,
     mock_deactivate_use_case: AsyncMock,
 ) -> None:
-    """Invalid auth returns 401 from TenantGuard."""
+    """Invalid auth returns 401 from AuthGuard."""
     guard = MagicMock()
     guard.validate.return_value = {
         "statusCode": 401,
@@ -357,7 +357,7 @@ async def test_handle_create_auth_failure_returns_401(
         list_members_use_case=mock_list_use_case,
         update_member_use_case=mock_update_use_case,
         deactivate_member_use_case=mock_deactivate_use_case,
-        tenant_guard=guard,
+        auth_guard=guard,
     )
     event = {"headers": {}, "body": None}
 
@@ -449,7 +449,7 @@ async def test_handle_list_viewer_allowed(
     mock_list_use_case: AsyncMock,
     mock_update_use_case: AsyncMock,
     mock_deactivate_use_case: AsyncMock,
-    viewer_context: TenantContext,
+    viewer_context: AuthContext,
 ) -> None:
     """Viewer role can list members (PERMISSION_READ)."""
     guard = MagicMock()
@@ -459,7 +459,7 @@ async def test_handle_list_viewer_allowed(
         list_members_use_case=mock_list_use_case,
         update_member_use_case=mock_update_use_case,
         deactivate_member_use_case=mock_deactivate_use_case,
-        tenant_guard=guard,
+        auth_guard=guard,
     )
     mock_list_use_case.execute.return_value = PaginatedMembersDTO(items=[], next_key=None)
     event = {
@@ -542,7 +542,7 @@ async def test_handle_update_viewer_gets_403(
     mock_list_use_case: AsyncMock,
     mock_update_use_case: AsyncMock,
     mock_deactivate_use_case: AsyncMock,
-    viewer_context: TenantContext,
+    viewer_context: AuthContext,
 ) -> None:
     """Viewer role cannot update members — returns 403."""
     guard = MagicMock()
@@ -552,7 +552,7 @@ async def test_handle_update_viewer_gets_403(
         list_members_use_case=mock_list_use_case,
         update_member_use_case=mock_update_use_case,
         deactivate_member_use_case=mock_deactivate_use_case,
-        tenant_guard=guard,
+        auth_guard=guard,
     )
     event = {
         "headers": {"Authorization": "Bearer valid-token"},
@@ -571,7 +571,7 @@ async def test_handle_update_uses_tenant_from_context(
     mock_update_use_case: AsyncMock,
     member_output: MemberOutputDTO,
 ) -> None:
-    """Update uses tenant_id from TenantContext, not from body."""
+    """Update uses tenant_id from AuthContext, not from body."""
     mock_update_use_case.execute.return_value = member_output
     event = {
         "headers": {"Authorization": "Bearer valid-token"},
@@ -670,7 +670,7 @@ async def test_handle_deactivate_viewer_gets_403(
     mock_list_use_case: AsyncMock,
     mock_update_use_case: AsyncMock,
     mock_deactivate_use_case: AsyncMock,
-    viewer_context: TenantContext,
+    viewer_context: AuthContext,
 ) -> None:
     """Viewer role cannot deactivate members — returns 403."""
     guard = MagicMock()
@@ -680,7 +680,7 @@ async def test_handle_deactivate_viewer_gets_403(
         list_members_use_case=mock_list_use_case,
         update_member_use_case=mock_update_use_case,
         deactivate_member_use_case=mock_deactivate_use_case,
-        tenant_guard=guard,
+        auth_guard=guard,
     )
     event = {
         "headers": {"Authorization": "Bearer valid-token"},

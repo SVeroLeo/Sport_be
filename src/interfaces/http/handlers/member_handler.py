@@ -6,7 +6,7 @@ Routes:
 - PUT    /members/{member_id} -> MemberController.handle_update
 - DELETE /members/{member_id} -> MemberController.handle_deactivate
 
-All routes require authenticated access (TenantGuard is applied
+All routes require authenticated access (AuthGuard is applied
 within the controller).
 """
 

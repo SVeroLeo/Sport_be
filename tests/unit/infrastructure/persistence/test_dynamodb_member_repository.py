@@ -36,9 +36,8 @@ def _set_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set required environment variables for the config singleton."""
     monkeypatch.setenv("TABLE_NAME", TABLE_NAME)
     monkeypatch.setenv("REGION", REGION)
-    monkeypatch.setenv("JWT_SECRET", "test-secret")
-    monkeypatch.setenv("TOKEN_EXPIRY", "3600")
-    monkeypatch.setenv("SALT_ROUNDS", "4")
+    monkeypatch.setenv("COGNITO_USER_POOL_ID", "test-pool")
+    monkeypatch.setenv("COGNITO_CLIENT_ID", "test-client")
 
 
 @pytest.fixture(autouse=True)

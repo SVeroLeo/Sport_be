@@ -59,11 +59,10 @@ def use_case(
 
 @pytest.fixture
 def valid_input() -> LoginInputDTO:
-    """Valid login input DTO."""
+    """Valid login input DTO (tenant-agnostic: email + password only)."""
     return LoginInputDTO(
         email="user@example.com",
         password="SecureP@ss1",
-        tenant_id="550e8400-e29b-41d4-a716-446655440000",
     )
 
 
@@ -89,6 +88,7 @@ def user() -> User:
         status="active",
         created_at=datetime(2024, 1, 1, tzinfo=UTC),
         updated_at=datetime(2024, 1, 1, tzinfo=UTC),
+        default_tenant_id="550e8400-e29b-41d4-a716-446655440000",
     )
 
 
@@ -182,6 +182,7 @@ class TestLoginSuccess:
         assert result.id_token == "id-token-def456"
         assert result.refresh_token == "refresh-token-ghi789"
         assert result.expires_in == 3600
+        assert result.default_tenant_id == "550e8400-e29b-41d4-a716-446655440000"
         assert result.roles == ["admin", "manager"]
 
     @pytest.mark.asyncio
@@ -200,7 +201,6 @@ class TestLoginSuccess:
         input_dto = LoginInputDTO(
             email="  User@Example.COM  ",
             password="SecureP@ss1",
-            tenant_id="550e8400-e29b-41d4-a716-446655440000",
         )
         cognito_service.initiate_auth.return_value = token_pair
         user_repository.find_by_email.return_value = user
@@ -435,7 +435,6 @@ class TestInvalidEmailFormat:
         input_dto = LoginInputDTO(
             email="",
             password="SecureP@ss1",
-            tenant_id="550e8400-e29b-41d4-a716-446655440000",
         )
 
         with pytest.raises(ValidationError, match="Invalid email format"):
@@ -450,7 +449,6 @@ class TestInvalidEmailFormat:
         input_dto = LoginInputDTO(
             email="not-an-email",
             password="SecureP@ss1",
-            tenant_id="550e8400-e29b-41d4-a716-446655440000",
         )
 
         with pytest.raises(ValidationError, match="Invalid email format"):
@@ -466,7 +464,6 @@ class TestInvalidEmailFormat:
         input_dto = LoginInputDTO(
             email="invalid",
             password="SecureP@ss1",
-            tenant_id="550e8400-e29b-41d4-a716-446655440000",
         )
 
         with pytest.raises(ValidationError):

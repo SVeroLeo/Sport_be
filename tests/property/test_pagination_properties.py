@@ -1,4 +1,4 @@
-"""Property-based tests for Pagination correctness.
+﻿"""Property-based tests for Pagination correctness.
 
 **Validates: Requirements 5.4, 6.1, 6.4, 6.5**
 
@@ -27,14 +27,14 @@ from infrastructure.persistence.dynamodb_account_type_repository import (
 )
 
 
-# ─── Constants ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 TABLE_NAME = "sport-test-table"
 TENANT_ID = "550e8400-e29b-41d4-a716-446655440000"
 FIXED_NOW = datetime(2024, 6, 1, 12, 0, 0, tzinfo=UTC)
 
 
-# ─── DynamoDB Table Setup ─────────────────────────────────────────────────────
+# â”€â”€â”€ DynamoDB Table Setup â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def _create_table(dynamodb_resource: object) -> object:
@@ -72,7 +72,6 @@ def _aws_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set required environment variables for DynamoDB client."""
     monkeypatch.setenv("TABLE_NAME", TABLE_NAME)
     monkeypatch.setenv("REGION", "us-east-1")
-    monkeypatch.setenv("JWT_SECRET", "test-secret")
     monkeypatch.setenv("TOKEN_EXPIRY", "3600")
     monkeypatch.setenv("SALT_ROUNDS", "4")
     monkeypatch.setenv("COGNITO_USER_POOL_ID", "test-pool")
@@ -110,7 +109,7 @@ def _moto_repo() -> Generator[DynamoDBAccountTypeRepository, None, None]:
             env_mod._config = None
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def _make_account_type(index: int) -> AccountType:
@@ -127,11 +126,11 @@ def _make_account_type(index: int) -> AccountType:
     )
 
 
-# ─── Property 18 Sub-property 1: PaginationParams Limit Clamping ─────────────
+# â”€â”€â”€ Property 18 Sub-property 1: PaginationParams Limit Clamping â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class TestPaginationBoundedLimit:
-    """Property 18 — Sub-property 1: Max items per page.
+    """Property 18 â€” Sub-property 1: Max items per page.
 
     For ANY requested limit (including values < 1 or > 100),
     PaginationParams ALWAYS clamps the effective limit to [1, 100].
@@ -197,11 +196,11 @@ class TestPaginationBoundedLimit:
         assert params.limit == limit
 
 
-# ─── Property 18 Sub-property 2: Non-overlapping Cursor Pages ─────────────────
+# â”€â”€â”€ Property 18 Sub-property 2: Non-overlapping Cursor Pages â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class TestPaginationNonOverlappingPages:
-    """Property 18 — Sub-property 2: Non-overlapping cursor pages.
+    """Property 18 â€” Sub-property 2: Non-overlapping cursor pages.
 
     When iterating through ALL pages using cursors, the union of all pages
     equals the full result set and NO item appears in more than one page.
@@ -226,11 +225,11 @@ class TestPaginationNonOverlappingPages:
         **Validates: Requirements 6.4, 6.5**
         """
         with _moto_repo() as repo:
-            # Arrange — insert N account types
+            # Arrange â€” insert N account types
             for i in range(num_items):
                 await repo.save(_make_account_type(i))
 
-            # Act — paginate through all pages
+            # Act â€” paginate through all pages
             all_ids: list[str] = []
             cursor: str | None = None
             pages_visited = 0
@@ -250,10 +249,10 @@ class TestPaginationNonOverlappingPages:
                     break
                 cursor = result.next_cursor
 
-            # Assert — completeness: all items were returned
+            # Assert â€” completeness: all items were returned
             assert len(all_ids) == num_items
 
-            # Assert — no overlaps: each item appeared exactly once
+            # Assert â€” no overlaps: each item appeared exactly once
             assert len(set(all_ids)) == num_items
 
     @given(
@@ -273,11 +272,11 @@ class TestPaginationNonOverlappingPages:
         **Validates: Requirements 6.4**
         """
         with _moto_repo() as repo:
-            # Arrange — insert items
+            # Arrange â€” insert items
             for i in range(num_items):
                 await repo.save(_make_account_type(i))
 
-            # Act — paginate
+            # Act â€” paginate
             cursor: str | None = None
             total_collected = 0
             max_pages = num_items + 10
@@ -289,11 +288,11 @@ class TestPaginationNonOverlappingPages:
                 total_collected += len(result.items)
 
                 if result.next_cursor is None:
-                    # This is the last page — we should have all items
+                    # This is the last page â€” we should have all items
                     assert total_collected == num_items
                     break
                 else:
-                    # More pages exist — we haven't collected everything yet
+                    # More pages exist â€” we haven't collected everything yet
                     assert total_collected < num_items
                     cursor = result.next_cursor
             else:

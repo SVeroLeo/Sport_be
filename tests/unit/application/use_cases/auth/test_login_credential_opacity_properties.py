@@ -4,9 +4,12 @@
 
 Property 2: Credential Error Opacity
 - For any login attempt with invalid credentials (whether due to non-existent email,
-  wrong password, or lack of active membership in the specified tenant), the System
-  returns the same generic "Invalid credentials" error, making it impossible to
-  distinguish between failure modes.
+  wrong password, or lack of active membership in the tenant resolved from the user's
+  default_tenant_id), the System returns the same generic "Invalid credentials" error,
+  making it impossible to distinguish between failure modes.
+
+Note: login is tenant-agnostic — the caller supplies only email + password and the
+active tenant is resolved from the user's default_tenant_id stored in DynamoDB.
 """
 
 from __future__ import annotations
@@ -21,11 +24,9 @@ from hypothesis import given, settings
 
 from application.dtos.auth.login_input_dto import LoginInputDTO
 from application.use_cases.auth.login_use_case import LoginUseCase
-from domain.entities.member import Member
 from domain.entities.token_pair import TokenPair
 from domain.entities.user import User
 from domain.errors.invalid_credentials_error import InvalidCredentialsError
-
 
 # ─── Failure Scenario Enum ────────────────────────────────────────────────────
 
@@ -46,9 +47,6 @@ valid_emails = st.emails().filter(lambda e: len(e.strip()) <= 254)
 # Valid passwords (8-72 chars to pass Password VO validation)
 valid_passwords = st.text(min_size=8, max_size=72)
 
-# Valid tenant IDs (UUID format)
-valid_tenant_ids = st.uuids().map(str)
-
 # Failure scenario strategy: one of the three failure paths
 failure_scenarios = st.sampled_from(list(FailureScenario))
 
@@ -67,7 +65,12 @@ def _make_token_pair() -> TokenPair:
 
 
 def _make_user() -> User:
-    """Create a dummy User entity for scenarios where user lookup succeeds."""
+    """Create a dummy User entity for scenarios where user lookup succeeds.
+
+    The user has a default_tenant_id so the login flow resolves the active tenant
+    from the profile and proceeds to the membership check (the tenant is never
+    supplied by the caller).
+    """
     return User.reconstitute(
         user_id="user-uuid-001",
         email="test@example.com",
@@ -76,6 +79,7 @@ def _make_user() -> User:
         status="active",
         created_at=datetime(2024, 1, 1, tzinfo=UTC),
         updated_at=datetime(2024, 1, 1, tzinfo=UTC),
+        default_tenant_id="550e8400-e29b-41d4-a716-446655440000",
     )
 
 
@@ -102,7 +106,8 @@ def _configure_mocks_for_scenario(
         user_repository.find_by_email.return_value = None
 
     elif scenario == FailureScenario.NO_MEMBERSHIP_IN_TENANT:
-        # Cognito succeeds, user found, but no membership in this tenant
+        # Cognito succeeds, user found, tenant resolved from default_tenant_id,
+        # but the user has no membership in that resolved tenant.
         cognito_service.initiate_auth.return_value = _make_token_pair()
         user_repository.find_by_email.return_value = _make_user()
         member_repository.find_by_user_in_tenant.return_value = None
@@ -123,7 +128,6 @@ class TestCredentialErrorOpacity:
         scenario=failure_scenarios,
         email=valid_emails,
         password=valid_passwords,
-        tenant_id=valid_tenant_ids,
     )
     @settings(max_examples=200)
     @pytest.mark.asyncio
@@ -132,7 +136,6 @@ class TestCredentialErrorOpacity:
         scenario: FailureScenario,
         email: str,
         password: str,
-        tenant_id: str,
     ) -> None:
         """Regardless of which step fails, the error is always the same generic message.
 
@@ -159,7 +162,6 @@ class TestCredentialErrorOpacity:
         input_dto = LoginInputDTO(
             email=email,
             password=password,
-            tenant_id=tenant_id,
         )
 
         # Act & Assert
@@ -174,7 +176,6 @@ class TestCredentialErrorOpacity:
         scenario_b=failure_scenarios,
         email=valid_emails,
         password=valid_passwords,
-        tenant_id=valid_tenant_ids,
     )
     @settings(max_examples=150)
     @pytest.mark.asyncio
@@ -184,7 +185,6 @@ class TestCredentialErrorOpacity:
         scenario_b: FailureScenario,
         email: str,
         password: str,
-        tenant_id: str,
     ) -> None:
         """Any two failure scenarios produce errors that cannot be distinguished.
 
@@ -197,7 +197,6 @@ class TestCredentialErrorOpacity:
         input_dto = LoginInputDTO(
             email=email,
             password=password,
-            tenant_id=tenant_id,
         )
 
         errors: list[InvalidCredentialsError] = []

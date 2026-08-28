@@ -34,6 +34,7 @@ from application.use_cases.member.update_member_use_case import UpdateMemberUseC
 from application.use_cases.registration.invite_user_use_case import InviteUserUseCase
 from application.use_cases.registration.register_use_case import RegisterUseCase
 from infrastructure.auth.cognito_auth_service import CognitoAuthService
+from infrastructure.auth.jwks_provider import get_jwks_provider
 from infrastructure.config.environment import get_environment_config
 from infrastructure.persistence.dynamodb_account_type_repository import (
     DynamoDBAccountTypeRepository,
@@ -51,7 +52,7 @@ from interfaces.http.controllers.account_type_controller import AccountTypeContr
 from interfaces.http.controllers.auth_controller import AuthController
 from interfaces.http.controllers.member_controller import MemberController
 from interfaces.http.controllers.registration_controller import RegistrationController
-from interfaces.http.middleware.tenant_guard_middleware import TenantGuardMiddleware
+from interfaces.http.middleware.auth_guard_middleware import AuthGuardMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +70,7 @@ class Container:
     """
 
     # Middleware
-    tenant_guard: TenantGuardMiddleware
+    auth_guard: AuthGuardMiddleware
 
     # Controllers
     auth_controller: AuthController
@@ -171,7 +172,12 @@ def _create_container() -> Container:
 
     # ── Interface Adapters Layer — Middleware ─────────────────────────────
 
-    tenant_guard = TenantGuardMiddleware(jwt_secret=config.jwt_secret)
+    auth_guard = AuthGuardMiddleware(
+        allowed_issuers=config.cognito_issuers,
+        allowed_client_ids=config.cognito_client_ids,
+        user_repository=user_repository,
+        jwks_provider=get_jwks_provider(),
+    )
 
     # ── Interface Adapters Layer — Controllers ────────────────────────────
 
@@ -185,7 +191,7 @@ def _create_container() -> Container:
     )
 
     account_type_controller = AccountTypeController(
-        tenant_guard=tenant_guard,
+        auth_guard=auth_guard,
         create_use_case=create_account_type_use_case,
         list_use_case=list_account_types_use_case,
         update_use_case=update_account_type_use_case,
@@ -197,13 +203,13 @@ def _create_container() -> Container:
         list_members_use_case=list_members_use_case,
         update_member_use_case=update_member_use_case,
         deactivate_member_use_case=deactivate_member_use_case,
-        tenant_guard=tenant_guard,
+        auth_guard=auth_guard,
     )
 
     logger.info("Composition root initialized successfully")
 
     return Container(
-        tenant_guard=tenant_guard,
+        auth_guard=auth_guard,
         auth_controller=auth_controller,
         registration_controller=registration_controller,
         account_type_controller=account_type_controller,

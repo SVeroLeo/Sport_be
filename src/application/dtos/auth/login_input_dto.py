@@ -6,10 +6,10 @@ from pydantic import BaseModel
 class LoginInputDTO(BaseModel):
     """Application-layer input contract for user login.
 
-    Contains the credentials and tenant context needed to authenticate
-    a user via Cognito and retrieve their tenant membership.
+    Login is tenant-agnostic: the user authenticates with just their email and
+    password. The active tenant is resolved from the user's default_tenant_id
+    (stored in DynamoDB), never supplied by the caller.
     """
 
     email: str
     password: str
-    tenant_id: str

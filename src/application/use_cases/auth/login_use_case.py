@@ -43,15 +43,21 @@ class LoginUseCase:
     async def execute(self, input_dto: LoginInputDTO) -> LoginOutputDTO:
         """Execute the login use case.
 
+        Login is tenant-agnostic: the user authenticates with email + password.
+        The active tenant is resolved from the user's default_tenant_id and used
+        to verify membership and load roles.
+
         Args:
-            input_dto: LoginInputDTO containing email, password, and tenant_id.
+            input_dto: LoginInputDTO containing email and password.
 
         Returns:
-            LoginOutputDTO with access_token, id_token, refresh_token, expires_in, and roles.
+            LoginOutputDTO with the Cognito token set, the resolved
+            default_tenant_id, and the user's roles in that tenant.
 
         Raises:
             ValidationError: If email format is invalid.
-            InvalidCredentialsError: If Cognito auth fails, user not found, or no membership.
+            InvalidCredentialsError: If Cognito auth fails, user not found, no
+                default tenant, or no active membership.
             DomainError: If membership is not active (message: "Account is not active").
         """
         # 1. Validate email format (raises ValidationError if invalid)
@@ -72,31 +78,39 @@ class LoginUseCase:
             # User authenticated in Cognito but not in our DB — treat as invalid credentials (Req 1.5)
             raise InvalidCredentialsError()
 
-        # 4. Check tenant membership (Req 1.5)
+        # 4. Resolve the active tenant from the user's profile (Req 1.5).
+        # Login no longer takes a tenant_id; the tenant is the user's default.
+        default_tenant_id = user.default_tenant_id
+        if not default_tenant_id:
+            # No default tenant assigned — generic error, do not reveal account state
+            raise InvalidCredentialsError()
+
+        # 5. Check tenant membership in the resolved (default) tenant
         member = self._member_repository.find_by_user_in_tenant(
-            tenant_id=input_dto.tenant_id,
+            tenant_id=default_tenant_id,
             user_id=user.user_id,
         )
         if member is None:
-            # No membership in this tenant — generic error to avoid revealing membership status
+            # No membership in the default tenant — generic error to avoid leaking state
             raise InvalidCredentialsError()
 
-        # 5. Check membership status is active (Req 1.4)
+        # 6. Check membership status is active (Req 1.4)
         if member.status != "active":
             raise DomainError("Account is not active")
 
-        # 6. Get roles for the user in this tenant (Req 1.6)
+        # 7. Get roles for the user in the resolved tenant (Req 1.6)
         user_roles = self._user_repository.get_roles_for_tenant(
             user_id=user.user_id,
-            tenant_id=input_dto.tenant_id,
+            tenant_id=default_tenant_id,
         )
         role_names = [role.role_name for role in user_roles]
 
-        # 7. Build and return output DTO (Req 1.2)
+        # 8. Build and return output DTO (Req 1.2)
         return LoginOutputDTO(
             access_token=token_pair.access_token,
             id_token=token_pair.id_token,
             refresh_token=token_pair.refresh_token,
             expires_in=token_pair.expires_in,
+            default_tenant_id=default_tenant_id,
             roles=role_names,
         )

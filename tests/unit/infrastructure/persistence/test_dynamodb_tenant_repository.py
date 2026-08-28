@@ -30,9 +30,8 @@ def _env_vars() -> None:  # type: ignore[misc]
     """Set required environment variables."""
     os.environ["TABLE_NAME"] = TABLE_NAME
     os.environ["REGION"] = REGION
-    os.environ["JWT_SECRET"] = "test-secret"
-    os.environ["TOKEN_EXPIRY"] = "3600"
-    os.environ["SALT_ROUNDS"] = "4"
+    os.environ["COGNITO_USER_POOL_ID"] = "test-pool"
+    os.environ["COGNITO_CLIENT_ID"] = "test-client"
 
 
 @pytest.fixture(autouse=True)

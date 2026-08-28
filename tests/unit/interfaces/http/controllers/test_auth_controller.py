@@ -64,13 +64,14 @@ class TestHandleLogin:
             id_token="id-token-456",
             refresh_token="refresh-token-789",
             expires_in=3600,
+            default_tenant_id="550e8400-e29b-41d4-a716-446655440000",
             roles=["admin", "viewer"],
         )
 
+        # Login is tenant-agnostic: request carries only email + password.
         event = _make_event({
             "email": "user@example.com",
             "password": "SecureP@ss1",
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
         })
 
         response = await controller.handle_login(event)
@@ -81,6 +82,8 @@ class TestHandleLogin:
         assert body["id_token"] == "id-token-456"
         assert body["refresh_token"] == "refresh-token-789"
         assert body["expires_in"] == 3600
+        # default_tenant_id is returned as informational context only.
+        assert body["default_tenant_id"] == "550e8400-e29b-41d4-a716-446655440000"
         assert body["roles"] == ["admin", "viewer"]
         assert response["headers"]["Content-Type"] == "application/json"
 
@@ -116,7 +119,6 @@ class TestHandleLogin:
         event = _make_event({
             "email": "bad@example.com",
             "password": "wrong",
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
         })
 
         response = await controller.handle_login(event)
@@ -135,7 +137,6 @@ class TestHandleLogin:
         event = _make_event({
             "email": "not-valid",
             "password": "Password1!",
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
         })
 
         response = await controller.handle_login(event)
@@ -154,7 +155,6 @@ class TestHandleLogin:
         event = _make_event({
             "email": "user@example.com",
             "password": "Password1!",
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
         })
 
         response = await controller.handle_login(event)
@@ -173,7 +173,6 @@ class TestHandleLogin:
         event = _make_event({
             "email": "user@example.com",
             "password": "Password1!",
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
         })
 
         response = await controller.handle_login(event)
@@ -192,7 +191,6 @@ class TestHandleLogin:
         event = _make_event({
             "email": "user@example.com",
             "password": "Password1!",
-            "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
         })
 
         response = await controller.handle_login(event)
@@ -211,6 +209,7 @@ class TestHandleLogin:
             id_token="it",
             refresh_token="rt",
             expires_in=1800,
+            default_tenant_id="550e8400-e29b-41d4-a716-446655440000",
             roles=["viewer"],
         )
 
@@ -219,7 +218,6 @@ class TestHandleLogin:
             "body": {
                 "email": "user@example.com",
                 "password": "Password1!",
-                "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
             },
         }
 

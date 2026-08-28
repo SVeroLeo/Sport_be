@@ -1,4 +1,4 @@
-"""Integration tests for tenant isolation and CRUD operations.
+﻿"""Integration tests for tenant isolation and CRUD operations.
 
 Tests exercise real DynamoDB repositories (via moto) and use cases together
 to verify multi-tenant data isolation, account type CRUD, member management,
@@ -45,7 +45,7 @@ from infrastructure.persistence.dynamodb_account_type_repository import DynamoDB
 from infrastructure.persistence.dynamodb_member_repository import DynamoDBMemberRepository
 
 
-# ─── Constants ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 TABLE_NAME = "test-table"
 REGION = "us-east-1"
@@ -56,7 +56,7 @@ USER_ID_2 = "22222222-2222-2222-2222-222222222222"
 ACCOUNT_TYPE_ID = "cccccccc-cccc-cccc-cccc-cccccccccccc"
 
 
-# ─── Fixtures ─────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.fixture(autouse=True)
@@ -64,7 +64,6 @@ def _aws_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set required environment variables for DynamoDB client."""
     monkeypatch.setenv("TABLE_NAME", TABLE_NAME)
     monkeypatch.setenv("REGION", REGION)
-    monkeypatch.setenv("JWT_SECRET", "test-secret")
     monkeypatch.setenv("TOKEN_EXPIRY", "3600")
     monkeypatch.setenv("SALT_ROUNDS", "4")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
@@ -192,10 +191,10 @@ def _make_member(
     )
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Property 1: Tenant Data Isolation
 # Validates: Requirements 9.1, 9.3
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestTenantDataIsolation:
@@ -238,7 +237,7 @@ class TestTenantDataIsolation:
         )
         await account_type_repo.save(at_b)
 
-        # Query Tenant A — should only see Tenant A's data
+        # Query Tenant A â€” should only see Tenant A's data
         result_a = await account_type_repo.find_all_by_tenant(
             TENANT_A_ID, PaginationParams(limit=100)
         )
@@ -246,7 +245,7 @@ class TestTenantDataIsolation:
         assert result_a.items[0].name == "Socio Premium"
         assert result_a.items[0].tenant_id == TENANT_A_ID
 
-        # Query Tenant B — should only see Tenant B's data
+        # Query Tenant B â€” should only see Tenant B's data
         result_b = await account_type_repo.find_all_by_tenant(
             TENANT_B_ID, PaginationParams(limit=100)
         )
@@ -348,10 +347,10 @@ class TestTenantDataIsolation:
         assert result is None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Account Type CRUD Integration Tests
 # Validates: Requirements 5.1, 5.4
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestAccountTypeCRUD:
@@ -365,7 +364,7 @@ class TestAccountTypeCRUD:
         self,
         dynamodb_env: tuple[DynamoDBAccountTypeRepository, DynamoDBMemberRepository],
     ) -> None:
-        """Full CRUD lifecycle: create → list → update → soft-delete."""
+        """Full CRUD lifecycle: create â†’ list â†’ update â†’ soft-delete."""
         account_type_repo, member_repo = dynamodb_env
 
         # --- CREATE ---
@@ -441,7 +440,7 @@ class TestAccountTypeCRUD:
             name="socio",
         ))
 
-        # Try to create with different case — should raise ConflictError
+        # Try to create with different case â€” should raise ConflictError
         with pytest.raises(ConflictError, match="already exists"):
             await create_uc.execute(CreateAccountTypeInputDTO(
                 tenant_id=TENANT_A_ID,
@@ -476,7 +475,7 @@ class TestAccountTypeCRUD:
         )
         member_repo.save(member)
 
-        # Attempt delete — should be rejected
+        # Attempt delete â€” should be rejected
         delete_uc = DeleteAccountTypeUseCase(account_type_repo, member_repo)
         with pytest.raises(DomainError, match="active members are using it"):
             await delete_uc.execute(TENANT_A_ID, "at-del-001")
@@ -487,10 +486,10 @@ class TestAccountTypeCRUD:
         assert still_active.status == "active"
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Member Management Integration Tests
 # Validates: Requirements 6.1, 6.4, 8.1
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestMemberManagement:
@@ -676,10 +675,10 @@ class TestMemberManagement:
             await deactivate_uc.execute(TENANT_A_ID, "mem-inact-001")
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Property 18: Pagination Bounded Response
 # Validates: Requirements 5.4, 6.1, 6.4
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPaginationBoundedResponse:
@@ -823,7 +822,7 @@ class TestPaginationBoundedResponse:
         assert page1.next_cursor is not None
         assert len(page1.items) == 3
 
-        # Request remaining — should have no cursor
+        # Request remaining â€” should have no cursor
         page2 = await account_type_repo.find_all_by_tenant(
             TENANT_A_ID, PaginationParams(limit=10, cursor=page1.next_cursor)
         )
@@ -831,9 +830,9 @@ class TestPaginationBoundedResponse:
         assert page2.next_cursor is None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 # Property-Based Tests: Tenant Isolation and Pagination
-# ═══════════════════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 
 class TestPropertyTenantIsolation:

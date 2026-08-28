@@ -1,4 +1,4 @@
-"""Integration tests for registration flows.
+﻿"""Integration tests for registration flows.
 
 Tests self-registration and admin invitation flows end-to-end using
 moto-mocked DynamoDB and Cognito services with real repository and
@@ -37,7 +37,7 @@ from infrastructure.mappers.account_type_mapper import account_type_to_item
 from infrastructure.mappers.tenant_mapper import tenant_to_item
 
 
-# ─── Fixtures ─────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.fixture(autouse=True)
@@ -50,7 +50,6 @@ def _aws_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     monkeypatch.setenv("TABLE_NAME", "sport-integration-test")
     monkeypatch.setenv("REGION", "us-east-1")
-    monkeypatch.setenv("JWT_SECRET", "test-jwt-secret-key")
     monkeypatch.setenv("TOKEN_EXPIRY", "3600")
     monkeypatch.setenv("SALT_ROUNDS", "4")
     monkeypatch.setenv("COGNITO_USER_POOL_ID", "us-east-1_TestPool")
@@ -267,7 +266,7 @@ def integration_env(monkeypatch):
         dc._table = None
 
 
-# ─── Helpers ──────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 def _seed_tenant(
@@ -324,7 +323,7 @@ def _seed_account_type(
     return at_id
 
 
-# ─── Test: Self-Registration Complete Flow ────────────────────────────────────
+# â”€â”€â”€ Test: Self-Registration Complete Flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class TestSelfRegistrationFlow:
@@ -337,7 +336,7 @@ class TestSelfRegistrationFlow:
     async def test_self_registration_creates_cognito_user_and_returns_pending(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """Valid self-registration → Cognito SignUp → confirmation-pending status.
+        """Valid self-registration â†’ Cognito SignUp â†’ confirmation-pending status.
 
         Validates: Requirement 3.1
         """
@@ -403,7 +402,7 @@ class TestSelfRegistrationFlow:
     async def test_self_registration_uses_tenant_default_account_type(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """No explicit accountType → uses tenant defaultAccountType.
+        """No explicit accountType â†’ uses tenant defaultAccountType.
 
         Validates: Requirement 3.7
         """
@@ -458,7 +457,7 @@ class TestSelfRegistrationFlow:
     async def test_self_registration_fallback_to_usuario_when_default_is_null(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """When defaultAccountType is null → assigns "usuario" as fallback.
+        """When defaultAccountType is null â†’ assigns "usuario" as fallback.
 
         Validates: Requirement 3.7
         """
@@ -469,7 +468,7 @@ class TestSelfRegistrationFlow:
 
         tenant_id = str(uuid.uuid4())
         _seed_tenant(table, tenant_id, default_account_type=None)
-        # No account type seeded — but fallback "usuario" doesn't require lookup
+        # No account type seeded â€” but fallback "usuario" doesn't require lookup
 
         user_repo = DynamoDBUserRepository(table=table)
         cognito_service = CognitoAuthService(
@@ -513,7 +512,7 @@ class TestSelfRegistrationFlow:
     async def test_self_registration_fallback_when_default_is_inactive(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """When defaultAccountType is inactive → fallback to "usuario".
+        """When defaultAccountType is inactive â†’ fallback to "usuario".
 
         Validates: Requirement 3.7
         """
@@ -568,7 +567,7 @@ class TestSelfRegistrationFlow:
     async def test_duplicate_email_raises_conflict_error(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """Self-registration with an existing email → ConflictError.
+        """Self-registration with an existing email â†’ ConflictError.
 
         Validates: Requirement 3.3
         """
@@ -630,7 +629,7 @@ class TestSelfRegistrationFlow:
         assert "already registered" in exc_info.value.message.lower()
 
 
-# ─── Test: Admin Invitation Flow ─────────────────────────────────────────────
+# â”€â”€â”€ Test: Admin Invitation Flow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class TestAdminInvitationFlow:
@@ -643,7 +642,7 @@ class TestAdminInvitationFlow:
     async def test_invite_new_user_creates_cognito_user_and_db_records(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """Admin invites new user → AdminCreateUser + atomic DynamoDB records.
+        """Admin invites new user â†’ AdminCreateUser + atomic DynamoDB records.
 
         Validates: Requirements 4.1, 4.2, 12.2
         """
@@ -746,7 +745,7 @@ class TestAdminInvitationFlow:
     async def test_invite_existing_user_creates_only_membership_records(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """Invite user already in system (different tenant) → only Membership+Member+Roles.
+        """Invite user already in system (different tenant) â†’ only Membership+Member+Roles.
 
         Validates: Requirement 4.3
         """
@@ -844,7 +843,7 @@ class TestAdminInvitationFlow:
     async def test_invite_user_already_member_of_tenant_raises_conflict(
         self, integration_env: dict[str, Any]
     ) -> None:
-        """Invite user who is already a member of the tenant → ConflictError.
+        """Invite user who is already a member of the tenant â†’ ConflictError.
 
         Validates: Requirement 4.4
         """
@@ -933,11 +932,11 @@ class TestAdminInvitationFlow:
         assert "already a member" in exc_info.value.message.lower()
 
 
-# ─── Test: Registration Atomicity (Property 8) ───────────────────────────────
+# â”€â”€â”€ Test: Registration Atomicity (Property 8) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class TestRegistrationAtomicity:
-    """Property 8: Registration Atomicity — integration tests.
+    """Property 8: Registration Atomicity â€” integration tests.
 
     For any registration attempt, either ALL required records are created
     atomically, or NONE are created. On transaction failure, no orphan
@@ -957,7 +956,7 @@ class TestRegistrationAtomicity:
         SignUp first and returns pending_confirmation. The actual DynamoDB
         transaction happens in the post-confirmation Lambda trigger.
         This test validates that the use case itself does NOT write DynamoDB
-        records — those are deferred to post-confirmation.
+        records â€” those are deferred to post-confirmation.
 
         Validates: Requirements 12.1, 12.3
         """
@@ -1002,7 +1001,7 @@ class TestRegistrationAtomicity:
                 account_type=None,
             )
 
-            # Execute self-registration (succeeds — creates Cognito user only)
+            # Execute self-registration (succeeds â€” creates Cognito user only)
             result = await use_case.execute(input_dto)
             assert result.status == "pending_confirmation"
 

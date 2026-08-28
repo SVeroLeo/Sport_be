@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Este documento define los requisitos del sistema de gestión de cuentas (Account Management) para un backend multi-tenant serverless. El sistema es una REST API backend-only (el frontend es un proyecto separado). Permite a instituciones deportivas gestionar tipos de cuentas, miembros y control de acceso basado en roles. La autenticación y gestión de tokens es delegada a AWS Cognito. Soporta registro por invitación del administrador y auto-registro, con aislamiento completo de datos entre tenants.
+Este documento define los requisitos del sistema de gestión de cuentas (Account Management) para un backend multi-tenant serverless. El sistema es una REST API backend-only (el frontend es un proyecto separado). Permite a instituciones deportivas gestionar tipos de cuentas, miembros y control de acceso basado en roles. La autenticación y gestión de tokens es delegada a AWS Cognito, desplegado **multi-region** (una réplica de User Pool por región clave). Los tokens se firman con RS256 y se verifican contra el JWKS del pool identificado por el issuer del token. Soporta registro por invitación del administrador y auto-registro, con aislamiento completo de datos entre tenants.
 
 ## Glossary
 
@@ -21,16 +21,16 @@ Este documento define los requisitos del sistema de gestión de cuentas (Account
 
 ### Requirement 1: User Authentication (Login)
 
-**User Story:** As a registered user, I want to authenticate with my email and password, so that I can obtain access tokens to interact with the system.
+**User Story:** As a registered user, I want to authenticate with just my email and password, so that I can obtain access tokens to interact with the system without having to specify a tenant.
 
 #### Acceptance Criteria
 
-1. WHEN a user submits valid email, password, and tenantId credentials, THE System SHALL delegate authentication to AWS Cognito (InitiateAuth) and, upon successful Cognito authentication, retrieve the user's tenant membership and roles from the database
-2. WHEN Cognito authentication succeeds and the user has an active membership in the specified tenant, THE System SHALL return the Cognito Token_Pair along with the user's roles for the specified tenant
+1. WHEN a user submits valid email and password credentials, THE System SHALL delegate authentication to AWS Cognito (InitiateAuth) and, upon successful Cognito authentication, retrieve the user's profile (including default_tenant_id) and roles from the database. The login request SHALL NOT require a tenantId.
+2. WHEN Cognito authentication succeeds, THE System SHALL return the Cognito Token_Pair. The access token SHALL NOT contain a tenant_id claim; the active tenant is resolved per-request from the user's default_tenant_id
 3. IF Cognito authentication fails (invalid email or password), THEN THE System SHALL return an "Invalid credentials" error without revealing whether the email exists
-4. IF the user's membership status in the specified tenant is not "active", THEN THE System SHALL reject the authentication and return an "Account is not active" error
-5. IF the user does not have a membership in the specified tenantId, THEN THE System SHALL return an "Invalid credentials" error without revealing membership status
-6. WHEN authentication succeeds, THE System SHALL include the user's roles for the specified tenant in the response context
+4. IF the authenticated user's profile has status other than "active", THEN THE System SHALL reject the authentication and return an "Account is not active" error
+5. WHEN authentication succeeds, THE System SHALL include the user's default_tenant_id in the login response as informational context for the client
+6. WHEN a subsequent authenticated request is processed, THE System SHALL resolve the active tenant from the user's default_tenant_id (read from DynamoDB) and include the user's current roles for that tenant in the request context
 
 ### Requirement 2: Token Refresh
 
@@ -126,11 +126,12 @@ Este documento define los requisitos del sistema de gestión de cuentas (Account
 
 #### Acceptance Criteria
 
-1. THE System SHALL enforce that every authenticated data query includes the requesting user's tenantId as a mandatory filter, derived from the Cognito JWT token payload
-2. WHEN a request contains a Cognito JWT token, THE System SHALL extract the tenantId from the token payload and use it for all subsequent data access operations
-3. IF an authenticated user's tenantId does not match the requested resource's tenantId, THEN THE System SHALL reject the request with a 403 Forbidden response and not disclose the existence of the resource
+1. THE System SHALL enforce that every authenticated data query includes the requesting user's active tenantId as a mandatory filter, resolved from the user's default_tenant_id stored in DynamoDB (NOT from the token)
+2. WHEN a request contains a Cognito access token, THE System SHALL verify it with RS256 against the JWKS of the User Pool identified by the token's `iss` claim (multi-region: one pool/issuer per region), then identify the user from the token (`sub`), look up their profile in DynamoDB, and use its default_tenant_id as the active tenant for all subsequent data access operations
+3. IF an authenticated user is not a member of the resolved tenant, THEN THE System SHALL reject the request with a 403 Forbidden response and not disclose the existence of the resource
 4. THE System SHALL ensure that member, account type, and role records are partitioned by tenantId in the data store
-5. IF a JWT token does not contain a tenantId claim, THEN THE System SHALL reject the request with a 401 error indicating an invalid token
+5. IF the authenticated user has no default_tenant_id assigned (or it references an inactive tenant), THEN THE System SHALL reject the request with a 403 error indicating no active tenant context
+6. IF a token fails verification — issuer not in the allow-list of known pools, `token_use` is not "access", `client_id` is not allowed, signing algorithm is not RS256, key id (`kid`) is unknown, signature is invalid, or the token is expired — THEN THE System SHALL reject the request with a 401 error
 
 ### Requirement 10: Role-Based Access Control
 

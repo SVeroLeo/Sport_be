@@ -6,7 +6,7 @@ Routes:
 - PUT    /account-types/{id} -> AccountTypeController.handle_update
 - DELETE /account-types/{id} -> AccountTypeController.handle_delete
 
-All routes require authenticated access (TenantGuard is applied
+All routes require authenticated access (AuthGuard is applied
 within the controller).
 """
 

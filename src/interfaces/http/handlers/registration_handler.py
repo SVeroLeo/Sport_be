@@ -3,7 +3,7 @@
 Routes:
 - POST /auth/register -> RegistrationController.handle_register
 
-This is a public endpoint — no TenantGuard middleware required.
+This is a public endpoint — no AuthGuard middleware required.
 """
 
 from __future__ import annotations

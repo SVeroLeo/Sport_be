@@ -107,6 +107,26 @@ class TestUserCreate:
         )
         assert user.full_name.value == "John Doe"
 
+    def test_create_defaults_default_tenant_id_to_none(self) -> None:
+        """When not supplied, default_tenant_id defaults to None."""
+        user = User.create(
+            email="test@example.com",
+            cognito_sub="sub-123",
+            full_name="John Doe",
+        )
+        assert user.default_tenant_id is None
+
+    def test_create_with_default_tenant_id(self) -> None:
+        """default_tenant_id is stored when supplied (e.g. self-registration)."""
+        tenant_id = "550e8400-e29b-41d4-a716-446655440000"
+        user = User.create(
+            email="test@example.com",
+            cognito_sub="sub-123",
+            full_name="John Doe",
+            default_tenant_id=tenant_id,
+        )
+        assert user.default_tenant_id == tenant_id
+
 
 class TestUserReconstitute:
     """Tests for User.reconstitute() method."""
@@ -130,6 +150,24 @@ class TestUserReconstitute:
         assert user.status == "active"
         assert user.created_at == now
         assert user.updated_at == now
+        # Backward compatibility: records without the field reconstitute to None.
+        assert user.default_tenant_id is None
+
+    def test_reconstitute_with_default_tenant_id(self) -> None:
+        """Reconstitute preserves a stored default_tenant_id."""
+        now = datetime.now(timezone.utc)
+        tenant_id = "550e8400-e29b-41d4-a716-446655440000"
+        user = User.reconstitute(
+            user_id="660e8400-e29b-41d4-a716-446655440111",
+            email="test@example.com",
+            cognito_sub="cognito-sub-abc",
+            full_name="Stored User",
+            status="active",
+            created_at=now,
+            updated_at=now,
+            default_tenant_id=tenant_id,
+        )
+        assert user.default_tenant_id == tenant_id
 
     def test_reconstitute_with_invalid_status_raises(self) -> None:
         """Reconstitute rejects invalid status values."""
@@ -166,6 +204,23 @@ class TestUserStatusTransitions:
         assert activated.user_id == user.user_id
         assert activated.created_at == user.created_at
         assert activated.updated_at >= user.updated_at
+
+    def test_status_transition_preserves_default_tenant_id(self) -> None:
+        """Status transitions carry default_tenant_id onto the new instance."""
+        now = datetime.now(timezone.utc)
+        tenant_id = "550e8400-e29b-41d4-a716-446655440000"
+        user = User.reconstitute(
+            user_id="550e8400-e29b-41d4-a716-446655440000",
+            email="test@example.com",
+            cognito_sub="sub-123",
+            full_name="User",
+            status="pending_confirmation",
+            created_at=now,
+            updated_at=now,
+            default_tenant_id=tenant_id,
+        )
+        confirmed = user.confirm()
+        assert confirmed.default_tenant_id == tenant_id
 
     def test_activate_already_active_raises(self) -> None:
         """Activating an already active user raises ValidationError."""

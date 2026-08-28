@@ -139,9 +139,9 @@ Implementación del sistema de gestión de cuentas multi-tenant siguiendo Clean 
 
   - [x] 6.3 (REMOVED - Cognito handles token refresh directly)
 
-  - [x] 6.4 Write property test for RefreshTokenUseCase single-use rotation
-    - **Property 6: Refresh Token Single-Use Rotation**
-    - **Validates: Requirements 2.1, 2.4, 2.5, 12.4**
+  - [x] 6.4 (SUPERSEDED - Refresh is delegated entirely to Cognito; there is no self-managed
+    refresh-token rotation or session store. Property 6 no longer applies. See tasks 6.3/6.5/12.4
+    (REMOVED) and the legacy-session cleanup captured in task 24.)
 
   - [x] 6.5 (REMOVED - Client revokes tokens via Cognito GlobalSignOut)
 
@@ -219,8 +219,11 @@ Implementación del sistema de gestión de cuentas multi-tenant siguiendo Clean 
 
 - [x] 11. Implement Infrastructure Layer — DynamoDB Client and Config
   - [x] 11.1 Create DynamoDB client configuration and environment config
-    - Create `src/infrastructure/config/environment.py` — Read TABLE_NAME, REGION, JWT_SECRET, TOKEN_EXPIRY, SALT_ROUNDS from env
+    - Create `src/infrastructure/config/environment.py` — Read TABLE_NAME, REGION and Cognito settings from env
     - Create `src/infrastructure/config/dynamoDBClient.py` — Singleton DynamoDB DocumentClient setup
+    - NOTE: The original version read a symmetric `JWT_SECRET`. With RS256/JWKS multi-region
+      (task 22) that is removed in favor of `COGNITO_ISSUERS` (allow-list of pools, one per
+      region) and `COGNITO_CLIENT_IDS`. Config migration is covered by task 22.
     - _Requirements: N/A (infrastructure setup)_
 
   - [x] 11.2 Create entity-to-DynamoDB item mappers
@@ -280,13 +283,14 @@ Implementación del sistema de gestión de cuentas multi-tenant siguiendo Clean 
   - Ensure all tests pass, ask the user if questions arise.
 
 - [x] 15. Implement Interface Adapters Layer — Middleware
-  - [x] 15.1 Implement TenantGuard middleware
-    - Create `src/interfaces/http/middleware/tenantGuardMiddleware.py`
+  - [x] 15.1 Implement AuthGuard middleware (initial version)
+    - Create `src/interfaces/http/middleware/auth_guard_middleware.py`
     - Extract Bearer token from Authorization header
-    - Verify JWT via IAuthService port
-    - Extract tenant_id from token payload, reject if missing (401)
-    - Return TenantContext { user_id, tenant_id, roles, email }
-    - _Requirements: 9.1, 9.2, 9.5, 10.4_
+    - Verify JWT and return AuthContext { user_id, tenant_id, roles, email }
+    - NOTE: This initial version used HS256 + a tenant_id token claim. Both are
+      superseded by tasks 22 (RS256/JWKS multi-region) and 23 (tenant resolved from
+      the user's default_tenant_id in DynamoDB). See those tasks for the current design.
+    - _Requirements: 10.4_
 
   - [x] 15.2 Implement RoleGuard middleware
     - Create `src/interfaces/http/middleware/roleGuardMiddleware.py`
@@ -316,15 +320,15 @@ Implementación del sistema de gestión de cuentas multi-tenant siguiendo Clean 
   - [x] 16.3 Implement AccountTypeController (create, list, update, delete)
     - Create `src/interfaces/http/controllers/accountTypeController.py`
     - Each handler: validate request → map to DTO → execute use case → map response
-    - Apply TenantGuard + RoleGuard per handler
+    - Apply AuthGuard + RoleGuard per handler
     - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5, 5.6, 5.7_
 
   - [x] 16.4 Implement MemberController (create/invite, list, update, deactivate)
     - Create `src/interfaces/http/controllers/memberController.py`
-    - handle_create: TenantGuard(manage_members) → parse body → inviteUserUseCase.execute → 201
-    - handle_list: TenantGuard(read) → parse query params → listMembersUseCase.execute → 200
-    - handle_update: TenantGuard(manage_members) → parse body → updateMemberUseCase.execute → 200
-    - handle_deactivate: TenantGuard(manage_members) → deactivateMemberUseCase.execute → 204
+    - handle_create: AuthGuard(manage_members) → parse body → inviteUserUseCase.execute → 201
+    - handle_list: AuthGuard(read) → parse query params → listMembersUseCase.execute → 200
+    - handle_update: AuthGuard(manage_members) → parse body → updateMemberUseCase.execute → 200
+    - handle_deactivate: AuthGuard(manage_members) → deactivateMemberUseCase.execute → 204
     - _Requirements: 4.1, 6.1, 7.1, 8.1_
 
 - [x] 17. Implement Interface Adapters Layer — Shared Utilities and Request DTOs
@@ -390,6 +394,71 @@ Implementación del sistema de gestión de cuentas multi-tenant siguiendo Clean 
 - [x] 21. Final checkpoint — All implementations and tests complete
   - Ensure all tests pass, ask the user if questions arise.
 
+## Change Set: Multi-Region RS256 + Tenant-Agnostic Token
+
+These tasks apply the design changes agreed after the initial implementation:
+the access token is tenant-agnostic, the active tenant is resolved from the user's
+`default_tenant_id` in DynamoDB, and token verification moves to RS256/JWKS against
+the Cognito User Pool identified by the token's `iss` claim (multi-region).
+
+- [x] 22. Migrate AuthGuard token verification to RS256 + JWKS (multi-region)
+  - [x] 22.1 Add multi-region Cognito config to environment
+    - Update `src/infrastructure/config/environment.py`: remove `JWT_SECRET`; add
+      `COGNITO_ISSUERS` (allow-list of issuer URLs, one User Pool per region) and
+      `COGNITO_CLIENT_IDS` (allow-list of app client ids). Keep `TABLE_NAME`, `REGION`.
+    - Update the composition root to construct the guard with the new config (no JWT secret).
+    - _Requirements: 9.2, 9.6_
+
+  - [x] 22.2 Implement a per-issuer JWKS cache
+    - Create a JWKS provider that, given an issuer, fetches `{iss}/.well-known/jwks.json`
+      and caches keys by issuer with a TTL; refreshes on unknown `kid` (key rotation).
+    - _Requirements: 9.2, 9.6_
+
+  - [x] 22.3 Rewrite AuthGuard signature verification to RS256/JWKS
+    - Read the unverified `iss` claim; reject if not in `COGNITO_ISSUERS` (401).
+    - Resolve the signing key by `kid` from the issuer's JWKS.
+    - Verify with algorithms pinned to `["RS256"]`; validate `iss`, `token_use == "access"`,
+      `client_id` in allow-list, and expiration. Reject with 401 on any failure.
+    - _Requirements: 9.2, 9.6_
+
+  - [x] 22.4 Update AuthGuard tests for RS256/JWKS
+    - Replace HS256 token fixtures with RS256-signed tokens and mocked JWKS.
+    - Cover: unknown issuer, unknown `kid`, wrong algorithm (`none`/HS*), wrong `token_use`,
+      disallowed `client_id`, expired token, and the valid-access-token happy path.
+    - _Requirements: 9.2, 9.6_
+
+- [x] 23. Resolve active tenant from the user profile (tenant-agnostic token)
+  - [x] 23.1 Add `default_tenant_id` to the User model and mapper
+    - Add `default_tenant_id` (UUID or null) to the User entity and its DynamoDB mapper.
+    - On self-registration, set `default_tenant_id` to the tenant the user registered into.
+    - _Requirements: 1.5, 9.1_
+
+  - [x] 23.2 Resolve tenant + roles from DynamoDB in AuthGuard
+    - Inject `IUserRepository` into AuthGuard. Using `sub` from the token, load the user
+      profile, use `default_tenant_id` as the active tenant, and load current roles for that
+      tenant from DynamoDB (do not read tenant/roles from the token).
+    - Reject 403 when there is no default tenant or the user is not a member of it.
+    - _Requirements: 9.1, 9.3, 9.5_
+
+  - [x] 23.3 Remove tenant_id from login flow and output
+    - Ensure the login use case / output DTO does not require or return a tenant_id claim;
+      keep `default_tenant_id` as informational context only.
+    - _Requirements: 1.1, 1.2, 1.5_
+
+  - [x] 23.4 Update tests for tenant resolution
+    - Update AuthGuard and login/controller tests so tenant is resolved from DynamoDB,
+      not from the token.
+    - _Requirements: 1.1, 9.1, 9.3_
+
+- [x] 24. (Optional, low-risk) Clean up legacy self-managed session model
+  - Remove remaining references to the self-managed refresh-token/session store that was
+    superseded by Cognito-managed refresh (sessionMapper, session-based pseudocode/DTOs).
+  - This is isolated from tasks 22–23 and can be scheduled independently.
+  - _Requirements: 2.1_
+
+- [x] 25. Checkpoint — RS256 + tenant-resolution change set complete
+  - Ensure all tests pass, ask the user if questions arise.
+
 ## Notes
 
 - Tasks marked with `*` are optional and can be skipped for faster MVP
@@ -424,7 +493,19 @@ Implementación del sistema de gestión de cuentas multi-tenant siguiendo Clean 
     { "id": 13, "tasks": ["15.3", "16.1", "16.2", "16.3", "16.4"] },
     { "id": 14, "tasks": ["18.1"] },
     { "id": 15, "tasks": ["18.2"] },
-    { "id": 16, "tasks": ["20.1", "20.2", "20.3", "20.4"] }
+    { "id": 16, "tasks": ["20.1", "20.2", "20.3", "20.4"] },
+    { "id": 17, "tasks": ["22.1", "22.2", "23.1"] },
+    { "id": 18, "tasks": ["22.3", "23.2", "23.3"] },
+    { "id": 19, "tasks": ["22.4", "23.4"] },
+    { "id": 20, "tasks": ["24", "25"] }
   ]
 }
 ```
+
+### Change-Set Dependency Notes (tasks 22–25)
+
+- 22.3 depends on 22.1 (config) and 22.2 (JWKS cache).
+- 23.2 depends on 23.1 (User.default_tenant_id) and on 22.3 (AuthGuard already verifying RS256),
+  since both modify the same AuthGuard.validate path — do 22 before wiring tenant resolution.
+- 22.4 and 23.4 (tests) come after their respective implementations.
+- 24 (legacy session cleanup) is independent and optional; 25 is the final checkpoint.

@@ -27,6 +27,7 @@ class User:
         "_email",
         "_cognito_sub",
         "_full_name",
+        "_default_tenant_id",
         "_status",
         "_created_at",
         "_updated_at",
@@ -36,6 +37,7 @@ class User:
     _email: Email
     _cognito_sub: str
     _full_name: FullName
+    _default_tenant_id: str | None
     _status: UserStatus
     _created_at: datetime
     _updated_at: datetime
@@ -49,11 +51,13 @@ class User:
         status: UserStatus,
         created_at: datetime,
         updated_at: datetime,
+        default_tenant_id: str | None = None,
     ) -> None:
         object.__setattr__(self, "_user_id", user_id)
         object.__setattr__(self, "_email", email)
         object.__setattr__(self, "_cognito_sub", cognito_sub)
         object.__setattr__(self, "_full_name", full_name)
+        object.__setattr__(self, "_default_tenant_id", default_tenant_id)
         object.__setattr__(self, "_status", status)
         object.__setattr__(self, "_created_at", created_at)
         object.__setattr__(self, "_updated_at", updated_at)
@@ -83,6 +87,15 @@ class User:
         return self._full_name
 
     @property
+    def default_tenant_id(self) -> str | None:
+        """The user's default (active) tenant, resolved per-request after login.
+
+        May be None until the user is associated with a tenant. The access token
+        is tenant-agnostic; the AuthGuard resolves the active tenant from this value.
+        """
+        return self._default_tenant_id
+
+    @property
     def status(self) -> UserStatus:
         return self._status
 
@@ -102,6 +115,7 @@ class User:
         cognito_sub: str,
         full_name: str,
         status: str = "active",
+        default_tenant_id: str | None = None,
     ) -> User:
         """Create a new User with generated user_id and timestamps.
 
@@ -110,6 +124,8 @@ class User:
             cognito_sub: The Cognito user sub identifier.
             full_name: Raw full name string (will be validated).
             status: Initial status. Defaults to "active".
+            default_tenant_id: The user's default (active) tenant, if known at
+                creation time (e.g. the tenant they self-register into). Optional.
 
         Returns:
             A validated User entity.
@@ -136,6 +152,7 @@ class User:
             status=status,  # type: ignore[arg-type]
             created_at=now,
             updated_at=now,
+            default_tenant_id=default_tenant_id,
         )
 
     @staticmethod
@@ -147,6 +164,7 @@ class User:
         status: str,
         created_at: datetime,
         updated_at: datetime,
+        default_tenant_id: str | None = None,
     ) -> User:
         """Reconstitute a User from persisted data (no validation of format).
 
@@ -160,6 +178,7 @@ class User:
             status: Stored status string.
             created_at: Original creation timestamp.
             updated_at: Last update timestamp.
+            default_tenant_id: Stored default tenant id, if any. Optional.
 
         Returns:
             A User entity reconstituted from stored data.
@@ -181,6 +200,7 @@ class User:
             status=status,  # type: ignore[arg-type]
             created_at=created_at,
             updated_at=updated_at,
+            default_tenant_id=default_tenant_id,
         )
 
     # ──── Status Transitions ──────────────────────────────────────────────────
@@ -240,6 +260,7 @@ class User:
             status=new_status,
             created_at=self._created_at,
             updated_at=datetime.now(timezone.utc),
+            default_tenant_id=self._default_tenant_id,
         )
 
     # ──── Domain Queries ──────────────────────────────────────────────────────

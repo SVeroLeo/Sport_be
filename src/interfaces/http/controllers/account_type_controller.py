@@ -1,7 +1,7 @@
 """AccountTypeController — handles HTTP requests for account type CRUD operations.
 
 Each handler:
-1. Validates authentication via TenantGuard middleware.
+1. Validates authentication via AuthGuard middleware.
 2. Checks role-based permissions via RoleGuard.
 3. Parses the request and maps to application-layer DTOs.
 4. Executes the appropriate use case.
@@ -34,7 +34,7 @@ from domain.errors.domain_error import DomainError
 from domain.errors.not_found_error import NotFoundError
 from domain.errors.validation_error import ValidationError
 from interfaces.http.middleware.role_guard_middleware import check_permission
-from interfaces.http.middleware.tenant_guard_middleware import TenantContext
+from interfaces.http.middleware.auth_guard_middleware import AuthContext
 
 if TYPE_CHECKING:
     from application.use_cases.account_type.create_account_type_use_case import (
@@ -49,8 +49,8 @@ if TYPE_CHECKING:
     from application.use_cases.account_type.update_account_type_use_case import (
         UpdateAccountTypeUseCase,
     )
-    from interfaces.http.middleware.tenant_guard_middleware import (
-        TenantGuardMiddleware,
+    from interfaces.http.middleware.auth_guard_middleware import (
+        AuthGuardMiddleware,
     )
 
 logger = logging.getLogger(__name__)
@@ -59,18 +59,18 @@ logger = logging.getLogger(__name__)
 class AccountTypeController:
     """Controller for account type CRUD operations.
 
-    Receives all use cases and TenantGuardMiddleware via constructor injection.
+    Receives all use cases and AuthGuardMiddleware via constructor injection.
     """
 
     def __init__(
         self,
-        tenant_guard: TenantGuardMiddleware,
+        auth_guard: AuthGuardMiddleware,
         create_use_case: CreateAccountTypeUseCase,
         list_use_case: ListAccountTypesUseCase,
         update_use_case: UpdateAccountTypeUseCase,
         delete_use_case: DeleteAccountTypeUseCase,
     ) -> None:
-        self._tenant_guard = tenant_guard
+        self._auth_guard = auth_guard
         self._create_use_case = create_use_case
         self._list_use_case = list_use_case
         self._update_use_case = update_use_case
@@ -90,8 +90,8 @@ class AccountTypeController:
             API Gateway response dict with statusCode 201 on success.
         """
         # 1. Authenticate
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Authorize
@@ -144,8 +144,8 @@ class AccountTypeController:
             API Gateway response dict with statusCode 200 on success.
         """
         # 1. Authenticate
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Authorize
@@ -188,8 +188,8 @@ class AccountTypeController:
             API Gateway response dict with statusCode 200 on success.
         """
         # 1. Authenticate
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Authorize
@@ -245,8 +245,8 @@ class AccountTypeController:
             API Gateway response dict with statusCode 204 on success.
         """
         # 1. Authenticate
-        auth_result = self._tenant_guard.validate(event)
-        if not isinstance(auth_result, TenantContext):
+        auth_result = self._auth_guard.validate(event)
+        if not isinstance(auth_result, AuthContext):
             return auth_result
 
         # 2. Authorize

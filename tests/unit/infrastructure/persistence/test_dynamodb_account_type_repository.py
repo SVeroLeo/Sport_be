@@ -34,9 +34,8 @@ def _aws_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Set required environment variables for DynamoDB client."""
     monkeypatch.setenv("TABLE_NAME", TABLE_NAME)
     monkeypatch.setenv("REGION", "us-east-1")
-    monkeypatch.setenv("JWT_SECRET", "test-secret")
-    monkeypatch.setenv("TOKEN_EXPIRY", "3600")
-    monkeypatch.setenv("SALT_ROUNDS", "4")
+    monkeypatch.setenv("COGNITO_USER_POOL_ID", "test-pool")
+    monkeypatch.setenv("COGNITO_CLIENT_ID", "test-client")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")

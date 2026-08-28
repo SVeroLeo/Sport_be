@@ -163,6 +163,30 @@ class TestRegisterSuccess:
         )
 
     @pytest.mark.asyncio
+    async def test_registration_resolves_tenant_the_user_registered_into(
+        self,
+        use_case: RegisterUseCase,
+        valid_input: RegisterInputDTO,
+        tenant_repository: AsyncMock,
+        account_type_repository: AsyncMock,
+        active_tenant: Tenant,
+        active_account_type: AccountType,
+    ) -> None:
+        """The tenant looked up during registration is the one from the request.
+
+        The tenant the user registers into becomes their default_tenant_id when
+        the post-confirmation Lambda trigger creates the User record (Req 3.2).
+        Here we assert the use case validates that exact tenant, so the value
+        carried forward to the trigger is correct (Req 1.5, 9.1).
+        """
+        tenant_repository.find_by_id.return_value = active_tenant
+        account_type_repository.find_by_name_in_tenant.return_value = active_account_type
+
+        await use_case.execute(valid_input)
+
+        tenant_repository.find_by_id.assert_awaited_once_with(TENANT_ID)
+
+    @pytest.mark.asyncio
     async def test_registration_normalizes_email(
         self,
         use_case: RegisterUseCase,

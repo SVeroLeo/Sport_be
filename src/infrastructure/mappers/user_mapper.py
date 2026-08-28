@@ -30,7 +30,7 @@ def user_to_item(user: User) -> dict[str, Any]:
     Returns:
         A dictionary representing the DynamoDB item.
     """
-    return {
+    item: dict[str, Any] = {
         "PK": f"USER#{user.email.value}",
         "SK": "PROFILE",
         "user_id": user.user_id,
@@ -41,6 +41,11 @@ def user_to_item(user: User) -> dict[str, Any]:
         "created_at": user.created_at.isoformat(),
         "updated_at": user.updated_at.isoformat(),
     }
+    # Only persist default_tenant_id when set, to keep items clean and avoid
+    # writing null attributes for users not yet associated with a tenant.
+    if user.default_tenant_id is not None:
+        item["default_tenant_id"] = user.default_tenant_id
+    return item
 
 
 def user_from_item(item: dict[str, Any]) -> User:
@@ -63,6 +68,7 @@ def user_from_item(item: dict[str, Any]) -> User:
         status=item["status"],
         created_at=datetime.fromisoformat(item["created_at"]),
         updated_at=datetime.fromisoformat(item["updated_at"]),
+        default_tenant_id=item.get("default_tenant_id"),
     )
 
 

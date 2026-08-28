@@ -5,7 +5,8 @@ token refresh, and logout. Catches domain errors and returns appropriate
 HTTP status codes.
 
 Implements Requirements:
-- 1.1: User authentication via email, password, tenant_id
+- 1.1: User authentication via email + password (tenant-agnostic; tenant resolved
+       from the user's default_tenant_id)
 - 2.1: Token refresh delegated to Cognito
 - 14.5: Logout via Cognito GlobalSignOut
 """
@@ -71,12 +72,11 @@ class AuthController:
         if body is None:
             return self._error_response(400, "Invalid or missing request body")
 
-        # Validate input DTO
+        # Validate input DTO (login is tenant-agnostic: email + password only)
         try:
             input_dto = LoginInputDTO(
                 email=body.get("email", ""),
                 password=body.get("password", ""),
-                tenant_id=body.get("tenant_id", ""),
             )
         except Exception:
             return self._error_response(400, "Invalid request: missing required fields")
@@ -97,12 +97,14 @@ class AuthController:
             logger.exception("Unexpected error during login")
             return self._error_response(500, "Internal server error")
 
-        # Map output DTO to response
+        # Map output DTO to response. default_tenant_id is informational context;
+        # the access token itself is tenant-agnostic (resolved per-request server-side).
         return self._success_response(200, {
             "access_token": result.access_token,
             "id_token": result.id_token,
             "refresh_token": result.refresh_token,
             "expires_in": result.expires_in,
+            "default_tenant_id": result.default_tenant_id,
             "roles": result.roles,
         })
 

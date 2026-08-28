@@ -1236,6 +1236,140 @@
         "chatSessionId": "sess_6512fa68-56b9-435f-a324-4849f1b37896",
         "timestamp": 1787709868754
       }
+    ],
+    "22.1 Add multi-region Cognito config to environment": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787924352604
+      },
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787924786518
+      }
+    ],
+    "22.2 Implement a per-issuer JWKS cache": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787924356410
+      },
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787924787449
+      }
+    ],
+    "23.1 Add `default_tenant_id` to the User model and mapper": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787924811059
+      },
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925201179
+      }
+    ],
+    "22.3 Rewrite AuthGuard signature verification to RS256/JWKS": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925209074
+      },
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925358823
+      }
+    ],
+    "23.2 Resolve tenant + roles from DynamoDB in AuthGuard": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925372971
+      },
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925541944
+      }
+    ],
+    "23.3 Remove tenant_id from login flow and output": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925373640
+      },
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925542878
+      }
+    ],
+    "22.4 Update AuthGuard tests for RS256/JWKS": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925547601
+      },
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925778868
+      }
+    ],
+    "22. Migrate AuthGuard token verification to RS256 + JWKS (multi-region)": [
+      {
+        "executionId": "bef45021-e07b-4800-a1fa-b23c8323adab",
+        "chatSessionId": "sess_bbf5341e-a028-4fa5-940e-12e914bc548a",
+        "timestamp": 1787925779018
+      }
+    ],
+    "23.4 Update tests for tenant resolution": [
+      {
+        "executionId": "a04410f4-1d46-49b8-8201-4d739a218213",
+        "chatSessionId": "sess_63e00801-079b-4fcb-9168-74ac7fef73f8",
+        "timestamp": 1787925821468
+      },
+      {
+        "executionId": "a04410f4-1d46-49b8-8201-4d739a218213",
+        "chatSessionId": "sess_63e00801-079b-4fcb-9168-74ac7fef73f8",
+        "timestamp": 1787926020412
+      }
+    ],
+    "23. Resolve active tenant from the user profile (tenant-agnostic token)": [
+      {
+        "executionId": "a04410f4-1d46-49b8-8201-4d739a218213",
+        "chatSessionId": "sess_63e00801-079b-4fcb-9168-74ac7fef73f8",
+        "timestamp": 1787926020591
+      }
+    ],
+    "24. (Optional, low-risk) Clean up legacy self-managed session model": [
+      {
+        "executionId": "78b9c196-db1d-4015-96b8-22dac5c954ce",
+        "chatSessionId": "sess_baf8010f-7ca9-4a70-b033-bf9e18d98ef7",
+        "timestamp": 1787927051779
+      },
+      {
+        "executionId": "78b9c196-db1d-4015-96b8-22dac5c954ce",
+        "chatSessionId": "sess_baf8010f-7ca9-4a70-b033-bf9e18d98ef7",
+        "timestamp": 1787927483384
+      }
+    ],
+    "25. Checkpoint — RS256 + tenant-resolution change set complete": [
+      {
+        "executionId": "dfe055f8-ff20-4c59-99f1-1f59418576f3",
+        "chatSessionId": "sess_d0f771f1-b969-4065-93fb-654d507d6e92",
+        "timestamp": 1787927537559
+      },
+      {
+        "executionId": "dfe055f8-ff20-4c59-99f1-1f59418576f3",
+        "chatSessionId": "sess_d0f771f1-b969-4065-93fb-654d507d6e92",
+        "timestamp": 1787928016493
+      }
     ]
   }
 }

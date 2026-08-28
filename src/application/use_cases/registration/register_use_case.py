@@ -112,7 +112,11 @@ class RegisterUseCase:
 
         # 8. Return confirmation-pending status (Req 3.1)
         # The post-confirmation Lambda trigger will create User, TenantMembership,
-        # Member, and Role records atomically in DynamoDB (Req 3.2)
+        # Member, and Role records atomically in DynamoDB (Req 3.2).
+        # When that trigger creates the User record it MUST set
+        # User.default_tenant_id = validated_tenant_id.value, so the tenant the
+        # user registered into becomes their default (active) tenant. The AuthGuard
+        # later resolves the active tenant from this value (tasks 23.1–23.2).
         return RegisterOutputDTO(
             user_id=cognito_sub,
             email=validated_email.value,

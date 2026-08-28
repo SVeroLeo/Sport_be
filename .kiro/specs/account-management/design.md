@@ -23,14 +23,14 @@ graph TB
     subgraph "Infrastructure Layer (Outermost)"
         DDB[(DynamoDB)]
         APIGW[API Gateway]
-        SM[Secrets Manager]
-        COG[AWS Cognito]
+        JWKS[Cognito JWKS per region]
+        COG[AWS Cognito Multi-Region]
         PWRT[Lambda Powertools]
     end
     
     subgraph "Interface Adapters Layer"
         LC[Lambda Controllers]
-        MW[Middleware - TenantGuard/RoleGuard]
+        MW[Middleware - AuthGuard/RoleGuard]
         RM[Request/Response Mappers]
         REPO_IMPL[Repository Implementations]
         AUTH_IMPL[Cognito Service Implementation]
@@ -122,8 +122,8 @@ sequenceDiagram
 
     C->>AG: HTTP Request
     AG->>H: Lambda Event
-    H->>MW: Validate JWT / Extract Tenant
-    MW->>CT: TenantContext
+    H->>MW: Validate JWT / Resolve default tenant from user profile
+    MW->>CT: AuthContext
     CT->>CT: Map Request → Input DTO
     CT->>UC: Execute(InputDTO)
     UC->>D: Create/Validate Domain Entity
@@ -158,9 +158,9 @@ graph TD
     RegisterLambda --> JWT
     
     subgraph "Tenant Isolation Layer"
-        CRUDLambda --> TenantGuard[Tenant Guard Middleware]
-        MemberLambda --> TenantGuard
-        TenantGuard --> RoleGuard[Role Guard Middleware]
+        CRUDLambda --> AuthGuard[Auth Guard Middleware]
+        MemberLambda --> AuthGuard
+        AuthGuard --> RoleGuard[Role Guard Middleware]
     end
     
     subgraph "DynamoDB Single Table"
@@ -307,7 +307,7 @@ src/
     │   │   └── member_controller.py
     │   ├── middleware/        # Cross-cutting concerns
     │   │   ├── __init__.py
-    │   │   ├── tenant_guard_middleware.py
+    │   │   ├── auth_guard_middleware.py
     │   │   ├── role_guard_middleware.py
     │   │   └── validation_middleware.py
     │   ├── routes/            # API route definitions
@@ -377,8 +377,9 @@ BEGIN
   tenant_repository ← NEW DynamoDBTenantRepository(dynamo_client)
   
   // Service implementations (implement port interfaces)
-  auth_service ← NEW CognitoAuthService(ENV.JWT_SECRET, ENV.TOKEN_EXPIRY)
-  password_hasher ← NEW CognitoAuthService(ENV.SALT_ROUNDS)
+  // RS256 verification is configured with the allow-list of Cognito pools (one issuer
+  // per region) and their client_ids; JWKS are fetched/cached per issuer. No JWT secret.
+  auth_service ← NEW CognitoAuthService(ENV.COGNITO_ISSUERS, ENV.COGNITO_CLIENT_IDS)
   
   // Application Layer - Use Cases (receive ports via constructor injection)
   login_use_case ← NEW LoginUseCase(user_repository, session_repository, auth_service, password_hasher)
@@ -439,16 +440,8 @@ sequenceDiagram
     UR-->>UC: User entity (or null)
     UC->>AS: initiate_auth(password, user.cognito_sub)
     AS-->>UC: boolean
-    UC->>UR: get_roles_for_tenant(user_id, tenant_id)
-    UR->>DB: Query(PK=TENANT#{tid}#USER#{uid}, SK begins_with ROLE#)
-    DB-->>UR: Role items
-    UR-->>UC: Role[] entities
-    UC->>AS: generate_token_pair(user_id, tenant_id, roles)
-    AS-->>UC: {accessToken, refreshToken}
-    UC->>SR: create_session(user_id, tenant_id, refreshToken)
-    SR->>DB: PutItem(session)
-    DB-->>SR: Success
-    UC-->>CT: LoginOutputDTO {accessToken, refreshToken}
+    Note over UC,DB: tenant_id is NOT part of the login token.<br/>The user's default_tenant_id lives in the profile and is<br/>resolved per-request by the AuthGuard, not embedded here.
+    UC-->>CT: LoginOutputDTO {accessToken, refreshToken, user_id, default_tenant_id}
     CT->>CT: Map DTO → HTTP Response
     CT-->>H: 200 {accessToken, refreshToken}
     H-->>AG: Lambda Response
@@ -494,7 +487,8 @@ sequenceDiagram
     UC->>UR: register_with_membership(user, membership, member, role)
     UR->>DB: TransactWriteItems [User, Membership, Member, Role]
     DB-->>UR: Success
-    UC->>AS: generate_token_pair(user_id, tenant_id, ["viewer"])
+    Note over UC,AS: The new user's tenant becomes their default_tenant_id (persisted on the User).<br/>The token itself carries no tenant_id claim.
+    UC->>AS: generate_token_pair(user_id, ["viewer"])
     AS-->>UC: {accessToken, refreshToken}
     UC-->>CT: RegisterOutputDTO {user, accessToken, refreshToken}
     CT-->>AG: 201 {user, tokens}
@@ -507,7 +501,7 @@ sequenceDiagram
 sequenceDiagram
     participant A as Admin Client
     participant AG as API Gateway
-    participant MW as TenantGuard Middleware
+    participant MW as AuthGuard Middleware
     participant CT as MemberController
     participant UC as CreateMemberUseCase
     participant UR as IUserRepository
@@ -517,8 +511,8 @@ sequenceDiagram
 
     A->>AG: POST /members {email, full_name, account_type, roles}
     AG->>MW: Validate JWT
-    MW->>MW: Extract tenant_id, verify admin role
-    MW->>CT: handle(event, tenantContext)
+    MW->>MW: Resolve default_tenant_id from user profile (DynamoDB), verify admin role
+    MW->>CT: handle(event, authContext)
     CT->>CT: Map request → CreateMemberInputDTO
     CT->>UC: execute(tenant_id, input, createdByUserId)
     UC->>ATR: find_by_name_in_tenant(tenant_id, account_type)
@@ -560,8 +554,8 @@ sequenceDiagram
 
     C->>AG: POST /account-types {name, description}
     AG->>MW: Validate JWT
-    MW->>MW: Extract tenant_id, verify permissions
-    MW->>CT: handle(event, tenantContext)
+    MW->>MW: Resolve default_tenant_id from user profile (DynamoDB), verify permissions
+    MW->>CT: handle(event, authContext)
     CT->>CT: Map request → CreateAccountTypeInputDTO
     CT->>UC: execute(tenant_id, input)
     UC->>UC: Validate account_type domain entity
@@ -592,8 +586,8 @@ sequenceDiagram
 
     A->>AG: GET /members?account_type=socio&limit=20
     AG->>MW: Validate JWT
-    MW->>MW: Extract tenant_id, verify permissions
-    MW->>CT: handle(event, tenantContext)
+    MW->>MW: Resolve default_tenant_id from user profile (DynamoDB), verify permissions
+    MW->>CT: handle(event, authContext)
     CT->>CT: Map query params → ListMembersInputDTO
     CT->>UC: execute(tenant_id, filters, pagination)
     UC->>MR: find_by_tenant_and_filters(tenant_id, filters, pagination)
@@ -677,7 +671,9 @@ END INTERFACE
 INTERFACE ICognitoService
   PROCEDURE sign_up(password: Password): String
   PROCEDURE initiate_auth(plainPassword: String, hashedPassword: String): Boolean
-  PROCEDURE generate_token_pair(user_id: UUID, tenant_id: tenant_id, email: String, roles: List[String]): token_pair
+  PROCEDURE generate_token_pair(user_id: UUID, email: String, roles: List[String]): token_pair
+  // NOTE: tenant_id is intentionally NOT included in the token.
+  // The active tenant is resolved per-request from the user's default_tenant_id in DynamoDB.
   PROCEDURE verify_access_token(token: String): TokenPayload OR NULL
   PROCEDURE generate_secure_random(length: Number): String
   PROCEDURE hash_token(token: String): String
@@ -869,16 +865,20 @@ END STRUCTURE
 
 ```pascal
 STRUCTURE CognitoAuthService IMPLEMENTS ICognitoService
-  DEPENDENCIES: jwtSecret: String, tokenExpiry: Number, saltRounds: Number
+  DEPENDENCIES: allowed_issuers: List[String], allowed_client_ids: List[String], jwks_cache: JWKSCache
 
-  PROCEDURE generate_token_pair(user_id, tenant_id, email, roles): token_pair
-    // Uses: jsonwebtoken library to sign JWT
-    // Returns: {accessToken, refreshToken}
+  PROCEDURE generate_token_pair(user_id, email, roles): token_pair
+    // Tokens are issued by AWS Cognito (RS256), not signed locally.
+    // Returns the Cognito-issued {accessToken, refreshToken} (no tenant_id claim).
   END PROCEDURE
 
   PROCEDURE verify_access_token(token): TokenPayload OR NULL
-    // Uses: jsonwebtoken library to verify and decode
-    // Returns: decoded payload or null if invalid/expired
+    // Verifies a Cognito ACCESS token with RS256 against the JWKS of the pool
+    // resolved from the token's 'iss' claim (multi-region aware).
+    // Checks: iss in allowed_issuers, token_use == "access", client_id allowed,
+    //         signature valid (algorithms pinned to ["RS256"]), not expired.
+    // Uses: cached JWKS per issuer ({iss}/.well-known/jwks.json).
+    // Returns: decoded payload or null if invalid/expired.
   END PROCEDURE
 
   PROCEDURE sign_up(password): String
@@ -922,7 +922,7 @@ END STRUCTURE
 STRUCTURE MemberController
   DEPENDENCIES: CreateMemberUseCase, ListMembersUseCase, UpdateMemberUseCase, DeactivateMemberUseCase
 
-  PROCEDURE handle_create(event: APIGatewayEvent, context: TenantContext): APIResponse
+  PROCEDURE handle_create(event: APIGatewayEvent, context: AuthContext): APIResponse
     // 1. Extract body from event
     // 2. Validate request schema
     // 3. Map to CreateMemberInputDTO
@@ -930,7 +930,7 @@ STRUCTURE MemberController
     // 5. Map MemberOutputDTO → 201 response
   END PROCEDURE
 
-  PROCEDURE handle_list(event: APIGatewayEvent, context: TenantContext): APIResponse
+  PROCEDURE handle_list(event: APIGatewayEvent, context: AuthContext): APIResponse
     // 1. Extract query params (account_type, status, limit, cursor)
     // 2. Map to filters + pagination
     // 3. Call listMembersUseCase.execute(context.tenant_id, filters, pagination)
@@ -941,12 +941,19 @@ END STRUCTURE
 
 ### Middleware (Interface Adapters Layer)
 
-#### TenantGuard Middleware
+#### AuthGuard Middleware
 
 ```pascal
-INTERFACE TenantGuard
-  PROCEDURE validateTenantAccess(token: TokenPayload, resourceTenantId: String): Boolean
-  PROCEDURE extractTenantContext(token: TokenPayload): TenantContext
+INTERFACE AuthGuard
+  // DEPENDENCIES:
+  //   - JWKSCache (per-issuer public keys for RS256 verification)
+  //   - IUserRepository (profile/default tenant lookup)
+  //   - config: allowed_issuers (one Cognito pool per region), allowed_client_ids
+  PROCEDURE resolveAuthContext(accessToken: String): AuthContext
+    // Verifies the Cognito ACCESS token with RS256 against the JWKS of the pool
+    // identified by the token's 'iss' claim (multi-region aware).
+    // Resolves the active tenant from the user's default_tenant_id in DynamoDB.
+    // The token does NOT carry a tenant_id claim.
 END INTERFACE
 
 INTERFACE RoleGuard
@@ -956,10 +963,13 @@ END INTERFACE
 ```
 
 **Responsibilities**:
-- Extraer tenant_id del token JWT
-- Verificar que el usuario pertenece al tenant solicitado
+- Verificar el **access token** de Cognito con **RS256** contra el JWKS del pool identificado por el claim `iss` (multi-region: un pool/issuer por región)
+- Validar claims estándar: `iss` en la whitelist de pools, `token_use == "access"`, `client_id` permitido, expiración; algoritmo fijado a RS256 (rechaza `none`/HS*)
+- Cachear los JWKS por issuer y refrescarlos ante rotación de claves
+- Recuperar el perfil del usuario en DynamoDB (por `sub`) y resolver su `default_tenant_id` como tenant activo (el token NO contiene tenant_id)
+- Cargar los roles vigentes del usuario para ese tenant desde DynamoDB
 - Validar permisos de rol para la acción solicitada
-- Rechazar acceso cross-tenant
+- Rechazar acceso si el usuario no tiene tenant por defecto o no es miembro del tenant resuelto
 
 ## Data Models
 
@@ -1040,6 +1050,7 @@ STRUCTURE User
   email: String
   cognito_sub: String
   full_name: String
+  default_tenant_id: UUID OR NULL   // Active tenant resolved per-request after login (see AuthGuard)
   status: ENUM(active, inactive, suspended, pending_confirmation)
   created_at: String
   updated_at: String
@@ -1147,7 +1158,7 @@ END STRUCTURE
 - `name` (account_type): no vacío, máx 100 caracteres, único dentro del tenant
 - `tenant_id`: debe existir en la tabla
 - `role_name`: debe ser uno de los roles válidos del sistema
-- `cognito_sub`: identificador �nico del usuario en Cognito (UUID generado por Cognito)
+- `cognito_sub`: identificador �nico del usuario en Cognito (UUID generado por Cognito)
 - `account_type` (Member): debe referenciar un account_type activo dentro del mismo tenant
 - `member_id`: único dentro del tenant
 - `full_name` (Member): no vacío, máx 200 caracteres
@@ -1219,28 +1230,27 @@ BEGIN
     RETURN Error("Invalid credentials")
   END IF
   
-  // Step 3: Get roles via repository port
-  roles ← this.user_repository.get_roles_for_tenant(user.user_id, user.primary_tenant_id)
+  // Step 3: Resolve the user's default tenant from the profile (stored in DynamoDB)
+  // The login token is tenant-agnostic. default_tenant_id is read from the User profile
+  // and only used to compute the roles claim; it is NOT embedded in the token.
+  default_tenant_id ← user.default_tenant_id
   
-  IF roles IS EMPTY THEN
-    RETURN Error("No tenant assigned")
-  END IF
+  // Step 4: Get roles for the default tenant via repository port
+  roles ← this.user_repository.get_roles_for_tenant(user.user_id, default_tenant_id)
   
   role_names ← EXTRACT role_name FROM EACH role IN roles
   
-  // Step 4: Generate tokens via auth service port
-  token_pair ← this.auth_service.generate_token_pair(user.user_id, user.primary_tenant_id, user.email, role_names)
-  
-  // Step 5: Store session via repository port
-  refresh_token_hash ← this.auth_service.hash_token(token_pair.refresh_token)
-  this.session_repository.create_session(user.user_id, user.primary_tenant_id, refresh_token_hash, NOW() + 86400 * 7)
+  // Step 5: Generate tokens via auth service port (no tenant_id claim)
+  token_pair ← this.auth_service.generate_token_pair(user.user_id, user.email, role_names)
   
   // --- Return Output DTO ---
+  // tenant_id is NOT part of the token. default_tenant_id is returned only as
+  // informational context for the client; every request re-resolves it server-side.
   RETURN LoginOutputDTO {
     access_token: token_pair.access_token,
     refresh_token: token_pair.refresh_token,
     user_id: user.user_id,
-    tenant_id: user.primary_tenant_id,
+    default_tenant_id: default_tenant_id,
     roles: role_names
   }
 END
@@ -1318,7 +1328,8 @@ BEGIN
   member_id ← generate_uuid()
   now ← ISO8601(NOW())
   
-  user ← User.create(user_id, email_vo, password_hash, input.full_name, "active", now)
+  // The tenant the user registers into becomes their default_tenant_id.
+  user ← User.create(user_id, email_vo, password_hash, input.full_name, tenant_id_vo, "active", now)
   membership ← TenantMembership.create(tenant_id_vo, user_id, now)
   member ← Member.create(member_id, tenant_id_vo, user_id, account_type_name, account_type_record.account_type_id, input.full_name, email_vo, "active", "self", NULL, now)
   role ← UserRole.create(tenant_id_vo, user_id, "viewer", ["read"], now)
@@ -1326,12 +1337,8 @@ BEGIN
   // Step 6: Atomic persistence via repository port
   this.user_repository.register_with_membership(user, membership, member, role)
   
-  // Step 7: Generate tokens via auth service port
-  token_pair ← this.auth_service.generate_token_pair(user_id, tenant_id_vo, email_vo, ["viewer"])
-  
-  // Store session
-  refresh_token_hash ← this.auth_service.hash_token(token_pair.refresh_token)
-  this.session_repository.create_session(user_id, tenant_id_vo, refresh_token_hash, NOW() + 86400 * 7)
+  // Step 7: Generate tokens via auth service port (no tenant_id claim)
+  token_pair ← this.auth_service.generate_token_pair(user_id, email_vo, ["viewer"])
   
   // --- Return Output DTO ---
   RETURN RegisterOutputDTO {
@@ -1351,7 +1358,8 @@ END
 
 **Postconditions:**
 - User, TenantMembership, Member, and Role all created atomically (all or nothing)
-- User immediately receives tokens for authentication
+- The user's `default_tenant_id` is set to the tenant they registered into
+- User immediately receives tokens for authentication (token carries no tenant_id claim)
 - Member is assigned the specified or default account_type
 - Default role "viewer" is assigned
 - If any part of the transaction fails, no records are created
@@ -1785,12 +1793,12 @@ END
 ### Tenant Guard Middleware (Interface Adapters Layer)
 
 ```pascal
-ALGORITHM TenantGuardMiddleware.validate(event: APIGatewayEvent, requiredPermission: String)
+ALGORITHM AuthGuardMiddleware.validate(event: APIGatewayEvent, requiredPermission: String)
 INPUT: event of type APIGatewayEvent, requiredPermission of type String
-OUTPUT: TenantContext OR Error
+OUTPUT: AuthContext OR Error
 
 BEGIN
-  // Step 1: Extract and validate JWT via ICognitoService
+  // Step 1: Extract and verify the Cognito ACCESS token (RS256, multi-region)
   authHeader ← event.headers["Authorization"]
   
   IF authHeader IS NULL OR NOT starts_with(authHeader, "Bearer ") THEN
@@ -1799,21 +1807,81 @@ BEGIN
   
   token ← SUBSTRING(authHeader, 7)
   
-  payload ← this.authService.verify_access_token(token)
+  // 1a. Read the token header (kid) and the unverified 'iss' claim.
+  //     Cognito signs every token with RS256; 'iss' is:
+  //       https://cognito-idp.{region}.amazonaws.com/{userPoolId}
+  //     In a multi-region setup each User Pool replica is a distinct pool
+  //     with its own issuer, kid and JWKS. The token is self-describing, so we
+  //     derive the correct JWKS from 'iss' regardless of which region served it.
+  unverified_iss ← READ_ISS_CLAIM_WITHOUT_VERIFICATION(token)
   
-  IF payload IS NULL OR payload.exp < NOW() THEN
+  // 1b. Reject tokens from issuers not in the allow-list of known pools.
+  IF unverified_iss NOT IN this.allowed_issuers THEN
     RETURN Error(401, "Token expired or invalid")
   END IF
   
-  // Step 2: Validate tenant access
-  tenant_id ← payload.tenant_id
+  // 1c. Fetch (and cache) the JWKS for that issuer, then pick the key by 'kid'.
+  //     JWKS is cached per issuer with a TTL; keys rotate rarely.
+  jwks ← this.jwks_cache.get_or_fetch(unverified_iss)   // {iss}/.well-known/jwks.json
+  signing_key ← jwks.find_by_kid(token.header.kid)
   
-  IF tenant_id IS NULL THEN
-    RETURN Error(403, "No tenant context in token")
+  IF signing_key IS NULL THEN
+    RETURN Error(401, "Token expired or invalid")
   END IF
   
-  // Step 3: Validate role permissions
-  user_roles ← payload.roles
+  // 1d. Verify signature (RS256) and standard claims.
+  //     - algorithm MUST be RS256 (reject 'none'/HS* to avoid algorithm confusion)
+  //     - iss matches the issuer we resolved
+  //     - token_use == "access" (we authorize APIs with the access token)
+  //     - client_id is in the allow-list
+  //     - exp not expired
+  payload ← VERIFY_JWT(
+    token,
+    key = signing_key,
+    algorithms = ["RS256"],
+    issuer = unverified_iss,
+    required_claims = { token_use: "access" }
+  )
+  
+  IF payload IS NULL OR payload.token_use != "access" THEN
+    RETURN Error(401, "Token expired or invalid")
+  END IF
+  
+  IF payload.client_id NOT IN this.allowed_client_ids THEN
+    RETURN Error(401, "Token expired or invalid")
+  END IF
+  
+  // Step 2: Resolve the active tenant from the user profile (DynamoDB)
+  // The token is tenant-agnostic. We look up the user by the token's sub/user_id
+  // and use their default_tenant_id as the active tenant for this request.
+  user_id ← payload.user_id
+  
+  IF user_id IS NULL THEN
+    RETURN Error(401, "Token expired or invalid")
+  END IF
+  
+  user ← this.user_repository.find_by_id(user_id)
+  
+  IF user IS NULL OR user.status != "active" THEN
+    RETURN Error(401, "Token expired or invalid")
+  END IF
+  
+  tenant_id ← user.default_tenant_id
+  
+  IF tenant_id IS NULL THEN
+    RETURN Error(403, "User has no default tenant assigned")
+  END IF
+  
+  // Step 3: Load current roles for the resolved tenant from DynamoDB
+  // Roles are authoritative in the data store, not in the (tenant-agnostic) token.
+  roles ← this.user_repository.get_roles_for_tenant(user_id, tenant_id)
+  user_roles ← EXTRACT role_name FROM EACH role IN roles
+  
+  IF user_roles IS EMPTY THEN
+    RETURN Error(403, "User is not a member of the resolved tenant")
+  END IF
+  
+  // Step 4: Validate role permissions
   has_permission ← FALSE
   
   FOR EACH role IN user_roles DO
@@ -1828,28 +1896,44 @@ BEGIN
     RETURN Error(403, "Insufficient permissions")
   END IF
   
-  // Step 4: Return tenant context
-  RETURN TenantContext {
-    user_id: payload.user_id,
+  // Step 5: Return auth context
+  RETURN AuthContext {
+    user_id: user_id,
     tenant_id: tenant_id,
     roles: user_roles,
-    email: payload.email
+    email: user.email
   }
 END
 ```
 
 **Preconditions:**
-- Request contains Authorization header with Bearer token
-- ICognitoService is available for token verification
+- Request contains Authorization header with a Bearer Cognito **access** token
+- The token issuer (`iss`) belongs to the allow-list of known Cognito User Pools (one per region)
+- A JWKS cache is available to fetch/cache the signing keys per issuer
+- IUserRepository is available to resolve the user profile and its default_tenant_id
 
 **Postconditions:**
-- Returns authenticated tenant context if valid
-- Rejects with 401 for auth issues
-- Rejects with 403 for permission issues
+- Verifies the token with RS256 against the JWKS of the pool identified by its `iss` claim
+- Returns authenticated tenant context if valid, with tenant_id resolved from the user's default_tenant_id (never from the token)
+- Rejects with 401 for auth issues (unknown issuer, unknown kid, bad signature, wrong `token_use`, disallowed client_id, expired token, unknown/inactive user)
+- Rejects with 403 for permission issues, missing default tenant, or non-membership in the resolved tenant
 - Never allows cross-tenant access
 
 **Loop Invariants:**
 - For role permission check: all previously checked roles did not contain the required permission
+
+**Note (multi-region signature):** Cognito always signs tokens with **RS256**. Verification
+uses the pool's public keys from its JWKS endpoint
+(`{iss}/.well-known/jwks.json`), never a shared symmetric secret. In a multi-region deployment
+each User Pool replica is a separate pool with its own `iss`, `kid` and JWKS; the guard resolves
+the correct keys from the token's `iss` claim, so it works no matter which region (via Route 53
+geoproximity/failover) served the login. JWKS are cached per issuer and refreshed on key rotation.
+The allowed algorithm is pinned to RS256 to prevent algorithm-confusion attacks (`none`/HS*).
+
+**Note (tenant-agnostic token):** The access token is intentionally tenant-agnostic. Both the
+active tenant and the effective roles are resolved from DynamoDB on every request, so changes to a
+user's default tenant or roles take effect immediately without requiring re-authentication. Beyond
+`sub` (user_id), the guard does not rely on token claims for identity/authorization data.
 
 ### Refresh Token Algorithm (RefreshTokenUseCase.execute)
 
@@ -1876,16 +1960,19 @@ BEGIN
   END IF
   
   // Step 2: Get user and roles via ports
+  // The token is tenant-agnostic. Roles are computed from the user's default_tenant_id,
+  // which is read from the profile — not from the (removed) session tenant.
   user_id ← session.user_id
-  roles ← this.userRepository.get_roles_for_tenant(user_id, session.tenant_id)
+  user ← this.userRepository.find_by_id(user_id)
+  roles ← this.userRepository.get_roles_for_tenant(user_id, user.default_tenant_id)
   
-  // Step 3: Generate new token pair via auth service port
+  // Step 3: Generate new token pair via auth service port (no tenant_id claim)
   role_names ← EXTRACT role_name FROM roles
-  new_token_pair ← this.authService.generate_token_pair(user_id, session.tenant_id, session.email, role_names)
+  new_token_pair ← this.authService.generate_token_pair(user_id, user.email, role_names)
   
   // Step 4: Rotate refresh token atomically via session port
   newRefreshTokenHash ← this.authService.hash_token(new_token_pair.refreshToken)
-  newSession ← Session.create(user_id, session.tenant_id, newRefreshTokenHash, NOW() + 86400 * 7)
+  newSession ← Session.create(user_id, newRefreshTokenHash, NOW() + 86400 * 7)
   
   this.sessionRepository.rotate_token(session, newSession)
   
@@ -2006,7 +2093,7 @@ END SEQUENCE
 // Example 2: Admin invites a new professional (Controller → Middleware → UseCase)
 SEQUENCE
   // --- Middleware Layer ---
-  context ← tenantGuardMiddleware.validate(event, "manage_members")
+  context ← authGuardMiddleware.validate(event, "manage_members")
   
   IF context IS Error THEN
     RETURN response(context.statusCode, context.message)
@@ -2050,7 +2137,7 @@ END SEQUENCE
 // Example 4: List members by account_type (Controller → UseCase → Port)
 SEQUENCE
   // --- Middleware ---
-  context ← tenantGuardMiddleware.validate(event, "read")
+  context ← authGuardMiddleware.validate(event, "read")
   IF context IS Error THEN RETURN response(context.statusCode, context.message) END IF
   
   // --- Controller ---
@@ -2065,7 +2152,7 @@ END SEQUENCE
 
 // Example 5: Create Account Type (Controller → UseCase → Port)
 SEQUENCE
-  context ← tenantGuardMiddleware.validate(event, "create")
+  context ← authGuardMiddleware.validate(event, "create")
   IF context IS Error THEN RETURN response(context.statusCode, context.message) END IF
   
   // --- Controller maps HTTP request to use case DTO ---
@@ -2083,7 +2170,7 @@ END SEQUENCE
 
 // Example 6: List with Pagination (Controller → UseCase → Port)
 SEQUENCE
-  context ← tenantGuardMiddleware.validate(event, "read")
+  context ← authGuardMiddleware.validate(event, "read")
   pagination ← { limit: 20, lastKey: event.queryParams.cursor OR NULL }
   
   result ← listAccountTypesUseCase.execute(context.tenant_id, pagination)
@@ -2092,7 +2179,7 @@ END SEQUENCE
 
 // Example 7: Update member account_type (Controller → UseCase → Ports)
 SEQUENCE
-  context ← tenantGuardMiddleware.validate(event, "manage_members")
+  context ← authGuardMiddleware.validate(event, "manage_members")
   IF context IS Error THEN RETURN response(context.statusCode, context.message) END IF
   
   updateInput ← { account_type: "profesional" }
@@ -2109,7 +2196,7 @@ END SEQUENCE
 
 // Example 8: Deactivate member (Controller → UseCase → Ports)
 SEQUENCE
-  context ← tenantGuardMiddleware.validate(event, "manage_members")
+  context ← authGuardMiddleware.validate(event, "manage_members")
   IF context IS Error THEN RETURN response(context.statusCode, context.message) END IF
   
   memberIdVO ← member_id.create(event.pathParams.member_id)
@@ -2129,7 +2216,7 @@ END SEQUENCE
 
 ### Property 1: Tenant Data Isolation
 
-*For any* two distinct tenants T1 and T2, the set of account types visible to T1 and the set visible to T2 are completely disjoint, and the set of members visible to T1 and the set visible to T2 are completely disjoint. Every authenticated data query uses the tenant_id extracted from the JWT token payload as a mandatory filter.
+*For any* two distinct tenants T1 and T2, the set of account types visible to T1 and the set visible to T2 are completely disjoint, and the set of members visible to T1 and the set visible to T2 are completely disjoint. Every authenticated data query uses the tenant_id resolved by the AuthGuard from the authenticated user's default_tenant_id in DynamoDB (never from the token) as a mandatory filter.
 
 ```pascal
 FOR ALL request R, tenant T1, tenant T2
@@ -2288,13 +2375,19 @@ FOR ALL member M, tenant T
 
 **Validates: Requirements 8.1, 14.3**
 
-### Property 12: Token Contains Correct Roles
+### Property 12: Effective Roles Reflect the Resolved Tenant
 
-*For any* successful authentication or token refresh, the generated access token payload includes all and only the current roles assigned to the user in that tenant.
+*For any* authenticated request, the roles used for authorization are all and only the
+current roles assigned to the user in the tenant resolved from their default_tenant_id.
+The access token is tenant-agnostic (carries no tenant_id claim); the AuthGuard reloads
+the roles for the resolved tenant from DynamoDB on every request, so the effective roles
+always reflect the authoritative data store rather than a stale token snapshot.
 
 ```pascal
-FOR ALL successful login or refresh L for user U in tenant T
-  ASSERT token(L).roles = U.current_roles(T)
+FOR ALL authenticated request R for user U
+  LET T = resolved_tenant(U) = U.default_tenant_id
+  ASSERT effective_roles(R) = U.current_roles(T)
+  AND tenant_id NOT IN claims(token(R))
 ```
 
 **Validates: Requirements 1.7, 2.6**
@@ -2459,9 +2552,9 @@ FOR ALL logout operation LO with refreshToken RT
 
 ### Error Scenario 6: Tenant Not Found
 
-**Condition**: tenant_id en token no corresponde a tenant activo
+**Condition**: El `default_tenant_id` del perfil del usuario no corresponde a un tenant activo, o el usuario no tiene tenant por defecto asignado
 **Response**: 403 Forbidden
-**Recovery**: Re-autenticar o contactar soporte
+**Recovery**: Asignar/actualizar el tenant por defecto del usuario o contactar soporte
 **Layer**: Use Case validates via ITenantRepository port
 
 ### Error Scenario 7: Email Already Registered
@@ -2575,7 +2668,7 @@ Properties a verificar:
 ## Security Considerations
 
 - **Password Storage**: Delegado completamente a AWS Cognito (implementado en ICognitoService, inyectado vía port)
-- **JWT Secrets**: Almacenados en AWS Secrets Manager, rotados periódicamente (Infrastructure concern)
+- **Token Signature**: Tokens firmados por Cognito con **RS256**. La verificación usa las claves públicas del JWKS de cada User Pool (uno por región); no hay secreto simétrico ni JWT firmado localmente. No se requiere Secrets Manager para esto.
 - **Token Expiry**: Access token 1h, refresh token 7d con rotación
 - **CORS**: Configurar origins permitidos por tenant
 - **Input Validation**: Sanitizar todos los inputs via Value Objects en Domain layer antes de llegar a Use Cases
@@ -2592,9 +2685,9 @@ Properties a verificar:
 - **AWS DynamoDB**: Base de datos NoSQL principal (single table) — Infrastructure layer
 - **AWS Lambda**: Runtime para funciones serverless — Infrastructure layer
 - **AWS API Gateway**: HTTP API con authorizers — Infrastructure layer
-- **AWS Secrets Manager**: Almacenamiento de JWT secrets — Infrastructure layer
-- **boto3**: AWS SDK for Python (DynamoDB + Cognito) � Infrastructure layer
-- **pydantic**: Input validation and DTOs � Domain/Application layer
+- **Cognito JWKS**: Claves públicas por User Pool/región para verificación RS256 (cacheadas por issuer) — Infrastructure layer
+- **boto3**: AWS SDK for Python (DynamoDB + Cognito) � Infrastructure layer
+- **pydantic**: Input validation and DTOs � Domain/Application layer
 - **uuid**: Generación de identificadores únicos — Domain/Infrastructure layer
 - **DynamoDB Local**: Para desarrollo y testing local — Infrastructure layer (testing)
 - **hypothesis**: Property-based testing library — Testing

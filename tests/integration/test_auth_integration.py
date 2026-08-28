@@ -1,4 +1,4 @@
-"""Integration tests for authentication flow.
+﻿"""Integration tests for authentication flow.
 
 **Validates: Requirements 1.1, 1.2, 1.7, 2.1, 14.5**
 
@@ -37,7 +37,7 @@ from infrastructure.persistence.dynamodb_member_repository import DynamoDBMember
 from infrastructure.persistence.dynamodb_user_repository import DynamoDBUserRepository
 
 
-# ─── Constants ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 TEST_REGION = "us-east-1"
 TEST_TABLE_NAME = "test-account-management"
@@ -47,7 +47,7 @@ TEST_FULL_NAME = "Test User"
 TENANT_ID = "550e8400-e29b-41d4-a716-446655440000"
 
 
-# ─── Strategies for Property Tests ───────────────────────────────────────────
+# â”€â”€â”€ Strategies for Property Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 valid_role_subsets = st.lists(
     st.sampled_from(["admin", "manager", "viewer"]),
@@ -57,7 +57,7 @@ valid_role_subsets = st.lists(
 )
 
 
-# ─── Fixtures ─────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Fixtures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 @pytest.fixture(autouse=True)
@@ -81,7 +81,6 @@ def _set_env_vars() -> Generator[None, None, None]:
     env_vars = {
         "TABLE_NAME": TEST_TABLE_NAME,
         "REGION": TEST_REGION,
-        "JWT_SECRET": "test-jwt-secret-key-for-integration-tests",
         "TOKEN_EXPIRY": "3600",
         "SALT_ROUNDS": "4",
         "COGNITO_USER_POOL_ID": "us-east-1_TestPool",
@@ -272,8 +271,14 @@ def _seed_user_in_dynamodb(
     user_id: str,
     cognito_sub: str,
     status: str = "active",
+    default_tenant_id: str | None = TENANT_ID,
 ) -> User:
-    """Helper: seed a User record in DynamoDB."""
+    """Helper: seed a User record in DynamoDB.
+
+    The token is tenant-agnostic; login resolves the active tenant from the
+    user's default_tenant_id (see tasks 23.1/23.2). Default it to TENANT_ID so
+    the login flow can resolve membership for the seeded tenant.
+    """
     now = datetime.now(timezone.utc)
     user = User.reconstitute(
         user_id=user_id,
@@ -283,6 +288,7 @@ def _seed_user_in_dynamodb(
         status=status,
         created_at=now,
         updated_at=now,
+        default_tenant_id=default_tenant_id,
     )
     from infrastructure.mappers.user_mapper import user_to_item
 
@@ -363,7 +369,7 @@ def _seed_membership_in_dynamodb(
     table.put_item(Item=tenant_membership_to_item(membership))
 
 
-# ─── Integration Tests ────────────────────────────────────────────────────────
+# â”€â”€â”€ Integration Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class TestLoginSuccessFlow:
@@ -648,7 +654,7 @@ class TestGlobalSignOut:
             await cognito_service.global_sign_out("invalid-access-token-value")
 
 
-# ─── Property-Based Tests ─────────────────────────────────────────────────────
+# â”€â”€â”€ Property-Based Tests â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 
 class TestProperty12TokenContainsCorrectRoles:

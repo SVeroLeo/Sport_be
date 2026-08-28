@@ -28,9 +28,8 @@ def _aws_env(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("AWS_DEFAULT_REGION", "us-east-1")
     monkeypatch.setenv("TABLE_NAME", "sport-test-table")
     monkeypatch.setenv("REGION", "us-east-1")
-    monkeypatch.setenv("JWT_SECRET", "test-secret")
-    monkeypatch.setenv("TOKEN_EXPIRY", "3600")
-    monkeypatch.setenv("SALT_ROUNDS", "4")
+    monkeypatch.setenv("COGNITO_USER_POOL_ID", "test-pool")
+    monkeypatch.setenv("COGNITO_CLIENT_ID", "test-client")
 
 
 @pytest.fixture
