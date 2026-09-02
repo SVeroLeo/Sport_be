@@ -1,5 +1,5 @@
 [project]
-name = "sport-be"
+name = "sora-sport-be"
 version = "0.1.0"
 description = "Account Management backend - Multi-tenant system with Clean Architecture"
 requires-python = ">=3.11"

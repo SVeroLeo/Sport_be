@@ -1,0 +1,5 @@
+﻿# Runtime dependencies bundled into the Lambda deployment package.
+# boto3 is already provided by the Lambda Python runtime, so it is intentionally
+# omitted here. These are the app's non-boto runtime deps from pyproject.toml.
+pydantic>=2.10.0
+PyJWT[crypto]>=2.8.0

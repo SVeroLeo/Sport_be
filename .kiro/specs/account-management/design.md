@@ -975,7 +975,7 @@ END INTERFACE
 
 ### Table Structure
 
-**Table Name**: `SportBE_Main`
+**Table Name**: `SoraSportBE_Main`
 
 | Attribute | Type | Description |
 |-----------|------|-------------|
