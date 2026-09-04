@@ -114,6 +114,9 @@ cdk deploy -c env=prod          # deploy only prod
 cdk deploy -c env=all           # deploy both
 ```
 
+For a step-by-step guide aimed at whoever performs the AWS upload (prereqs,
+bootstrap, deploy, outputs, post-deploy), see [`DEPLOYMENT.md`](DEPLOYMENT.md).
+
 ## TODO
 
 - Custom domain (Route 53 hosted zone + ACM certificate + API mapping) — left as
