@@ -18,11 +18,11 @@ lo que aplica ya (single-region) de lo que llega con multi-región.
 
 ## Pendientes — single-region (aplican ya)
 
-- [ ] Implementar la lógica real del handler post-confirmation de Cognito
+- [x] Implementar la lógica real del handler post-confirmation de Cognito
   (`src/interfaces/http/handlers/post_confirmation_handler.py`): crear User
   (status "active") + TenantMembership + Member + rol "viewer" de forma atómica
   en DynamoDB (Requirement 3.2), reutilizando repositorios/use case en una sola
-  transacción, con tests. Hoy es un placeholder que solo loguea el evento.
+  transacción, con tests. ✅ Implementado y testeado (9 unit tests).
 - [ ] Observabilidad CDK: suscribir un endpoint (email/Slack/PagerDuty) al SNS
   topic de alarmas (`AlarmTopicArn`) por entorno. Hoy el topic existe pero no
   tiene suscripciones. (Ver `infra/DEPLOYMENT.md`, sección post-despliegue.)

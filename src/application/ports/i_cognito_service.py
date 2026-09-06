@@ -16,16 +16,27 @@ class ICognitoService(ABC):
     """
 
     @abstractmethod
-    async def sign_up(self, email: str, password: str, full_name: str) -> str:
+    async def sign_up(
+        self,
+        email: str,
+        password: str,
+        full_name: str,
+        tenant_id: str,
+        account_type: str,
+    ) -> str:
         """Register a new user in Cognito via SignUp flow.
 
         Used for self-registration. Cognito will send a verification
-        email to the user.
+        email to the user. The tenant_id and account_type are stored as
+        custom attributes so the Post Confirmation trigger can create the
+        DynamoDB records without a separate lookup.
 
         Args:
             email: The user's email address.
             password: The user's chosen password (already validated).
             full_name: The user's full name.
+            tenant_id: UUID of the tenant the user is registering into.
+            account_type: Resolved account type name (e.g. "usuario").
 
         Returns:
             The Cognito sub (user ID in Cognito).

@@ -260,6 +260,12 @@ class AccountManagementStack(Stack):
                 email=cognito.StandardAttribute(required=True, mutable=False),
                 fullname=cognito.StandardAttribute(required=False, mutable=True),
             ),
+            custom_attributes={
+                # Stored during sign-up so the Post Confirmation trigger can
+                # create DynamoDB records without a separate lookup.
+                "tenant_id": cognito.StringAttribute(mutable=False),
+                "account_type": cognito.StringAttribute(mutable=True),
+            },
             password_policy=cognito.PasswordPolicy(
                 min_length=8,
                 require_lowercase=True,

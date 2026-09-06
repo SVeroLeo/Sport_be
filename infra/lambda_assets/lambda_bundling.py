@@ -129,7 +129,7 @@ def build_backend_code(runtime: lambda_.Runtime) -> lambda_.Code:
     return lambda_.Code.from_asset(
         _REPO_ROOT,
         asset_hash_type=AssetHashType.CUSTOM,
-        asset_hash="account-management-backend",
+        asset_hash="account-management-backend-v3",
         exclude=[
             "**",
             "!src/**",
