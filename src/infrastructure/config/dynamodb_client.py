@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 import boto3
-
-from infrastructure.config.environment import get_environment_config
 
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBServiceResource
@@ -21,31 +20,37 @@ _table: "Table | None" = None
 def get_dynamodb_resource() -> "DynamoDBServiceResource":
     """Get the singleton DynamoDB resource.
 
-    Creates the boto3 DynamoDB resource on the first call (cold start)
-    and reuses it on subsequent calls (warm invocations).
+    Reads REGION directly from the environment to avoid requiring the full
+    EnvironmentConfig (which validates Cognito vars not needed here).
 
     Returns:
         The boto3 DynamoDB service resource.
     """
     global _dynamodb_resource  # noqa: PLW0603
     if _dynamodb_resource is None:
-        config = get_environment_config()
-        _dynamodb_resource = boto3.resource("dynamodb", region_name=config.region)
+        region = os.environ.get("REGION", os.environ.get("AWS_DEFAULT_REGION", "us-east-1"))
+        _dynamodb_resource = boto3.resource("dynamodb", region_name=region)
     return _dynamodb_resource
 
 
 def get_dynamodb_table() -> "Table":
     """Get the singleton DynamoDB Table resource for the application table.
 
-    Creates the Table reference on the first call (cold start)
-    and reuses it on subsequent calls (warm invocations).
+    Reads TABLE_NAME and REGION directly from the environment to avoid
+    requiring the full EnvironmentConfig (which validates Cognito vars not
+    needed here, e.g. in the PostConfirmation Lambda trigger).
 
     Returns:
         The boto3 DynamoDB Table resource for TABLE_NAME.
+
+    Raises:
+        EnvironmentError: If TABLE_NAME is not set.
     """
     global _table  # noqa: PLW0603
     if _table is None:
-        config = get_environment_config()
+        table_name = os.environ.get("TABLE_NAME", "")
+        if not table_name:
+            raise EnvironmentError("TABLE_NAME environment variable is required")
         resource = get_dynamodb_resource()
-        _table = resource.Table(config.table_name)
+        _table = resource.Table(table_name)
     return _table

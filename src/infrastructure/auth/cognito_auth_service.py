@@ -108,16 +108,28 @@ class CognitoAuthService(ICognitoService):
 
     # ──── User Registration ───────────────────────────────────────────────────
 
-    async def sign_up(self, email: str, password: str, full_name: str) -> str:
+    async def sign_up(
+        self,
+        email: str,
+        password: str,
+        full_name: str,
+        tenant_id: str,
+        account_type: str,
+    ) -> str:
         """Register a new user in Cognito via the SignUp flow.
 
         Used for self-registration. Cognito sends a verification
-        email to the user after successful sign-up.
+        email to the user after successful sign-up. The tenant_id and
+        account_type are stored as custom attributes so the Post
+        Confirmation Lambda trigger can create DynamoDB records without
+        a separate lookup.
 
         Args:
             email: The user's email address.
             password: The user's chosen password — forwarded to Cognito only.
             full_name: The user's full name (stored as Cognito attribute).
+            tenant_id: UUID of the tenant the user is registering into.
+            account_type: Resolved account type name (e.g. "usuario").
 
         Returns:
             The Cognito user sub (unique user ID in Cognito).
@@ -133,6 +145,8 @@ class CognitoAuthService(ICognitoService):
                 UserAttributes=[
                     {"Name": "email", "Value": email},
                     {"Name": "name", "Value": full_name},
+                    {"Name": "custom:tenant_id", "Value": tenant_id},
+                    {"Name": "custom:account_type", "Value": account_type},
                 ],
             )
         except ClientError as e:

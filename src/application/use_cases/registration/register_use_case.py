@@ -108,6 +108,8 @@ class RegisterUseCase:
             email=validated_email.value,
             password=validated_password.value,
             full_name=validated_full_name.value,
+            tenant_id=validated_tenant_id.value,
+            account_type=account_type_name,
         )
 
         # 8. Return confirmation-pending status (Req 3.1)
