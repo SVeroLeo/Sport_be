@@ -26,6 +26,16 @@ lo que aplica ya (single-region) de lo que llega con multi-región.
 - [ ] Observabilidad CDK: suscribir un endpoint (email/Slack/PagerDuty) al SNS
   topic de alarmas (`AlarmTopicArn`) por entorno. Hoy el topic existe pero no
   tiene suscripciones. (Ver `infra/DEPLOYMENT.md`, sección post-despliegue.)
+- [ ] `SECRET_HASH` condicional en los métodos de recuperación de contraseña /
+  challenge de Cognito (`src/infrastructure/auth/cognito_auth_service.py`:
+  `forgot_password`, `confirm_forgot_password`, `respond_to_challenge`). Hoy el
+  App Client **no tiene secreto**, así que las llamadas omiten `SECRET_HASH` y
+  queda documentado el punto de extensión en el código. Si en el futuro se
+  configura un secreto en el App Client, activar el cálculo del HMAC
+  (`base64(HMAC-SHA256(secret, username + client_id))`) e inyectarlo en las tres
+  llamadas (y en `challenge_responses["SECRET_HASH"]` para respond-to-challenge),
+  tratándolo como material sensible (nunca loggearlo). (Spec
+  `.kiro/specs/password-recovery-challenge`, Req 1.8 / 2.12 / 3.10)
 
 ## Pendientes — transición a multi-región (Fase 2)
 

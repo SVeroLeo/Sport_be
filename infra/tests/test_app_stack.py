@@ -155,6 +155,9 @@ def test_api_has_expected_routes(dev_template: Template) -> None:
         "refresh",
         "logout",
         "register",
+        "forgot-password",
+        "confirm-forgot-password",
+        "respond-to-challenge",
         "account-types",
         "members",
         "health",
@@ -164,6 +167,33 @@ def test_api_has_expected_routes(dev_template: Template) -> None:
         dev_template.has_resource_properties(
             "AWS::ApiGateway::Resource", {"PathPart": path_part}
         )
+
+
+def test_password_recovery_routes_present(dev_template: Template) -> None:
+    # The three password-recovery / challenge POST routes live under /auth,
+    # served by the same AuthFn LambdaIntegration (public, no authorizer).
+    for path_part in (
+        "forgot-password",
+        "confirm-forgot-password",
+        "respond-to-challenge",
+    ):
+        dev_template.has_resource_properties(
+            "AWS::ApiGateway::Resource", {"PathPart": path_part}
+        )
+
+
+def test_authfn_has_password_recovery_cognito_actions(dev_template: Template) -> None:
+    # AuthFn's IAM policy must grant the client-based Cognito operations the
+    # password-recovery / challenge endpoints call. Asserting the exact policy
+    # statement is brittle (the actions live inside an Action array alongside
+    # the admin ops), so verify each action string appears in the template.
+    template_json = str(dev_template.to_json())
+    for action in (
+        "cognito-idp:ForgotPassword",
+        "cognito-idp:ConfirmForgotPassword",
+        "cognito-idp:RespondToAuthChallenge",
+    ):
+        assert action in template_json
 
 
 # ── WAF ──────────────────────────────────────────────────────────────────

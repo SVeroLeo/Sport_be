@@ -160,10 +160,12 @@ def handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Returns:
         API Gateway Lambda proxy response dict.
     """
-    from interfaces.http.social_login_composition_root import get_oauth_controller
+    from interfaces.http.social_login_composition_root import (
+        get_social_login_container,
+    )
 
     try:
-        controller = get_oauth_controller()
+        controller = get_social_login_container().oauth_controller
 
         http_method = (event.get("httpMethod") or "").upper()
         # Prefer the API Gateway resource template; fall back to the concrete path.

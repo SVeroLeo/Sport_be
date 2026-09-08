@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from domain.entities.challenge_result import ChallengeResult
 from domain.entities.token_pair import TokenPair
 
 
@@ -205,4 +206,86 @@ class ICognitoService(ABC):
             cognito_sub: The Cognito sub (user ID) whose attributes are
                 updated.
             attributes: A mapping of attribute name to value to set.
+        """
+
+    @abstractmethod
+    async def forgot_password(self, email: str) -> None:
+        """Initiate a password reset via Cognito ForgotPassword.
+
+        Triggers Cognito to email a confirmation code to the user so
+        they can begin the password recovery flow.
+
+        To prevent user enumeration, this method does NOT raise if the
+        email is not registered: Cognito's ``UserNotFoundException`` is
+        swallowed and treated as success, so callers cannot distinguish
+        a registered email from an unregistered one.
+
+        Args:
+            email: The user's email address.
+
+        Raises:
+            RateLimitError: If Cognito reports a rate limit condition
+                (``LimitExceededException`` or ``TooManyRequestsException``).
+        """
+
+    @abstractmethod
+    async def confirm_forgot_password(
+        self,
+        email: str,
+        confirmation_code: str,
+        new_password: str,
+    ) -> None:
+        """Complete a password reset via Cognito ConfirmForgotPassword.
+
+        Uses the confirmation code previously emailed to the user, along
+        with the chosen new password, to finalize the reset. No tokens
+        are returned; the user must log in afterward.
+
+        Args:
+            email: The user's email address.
+            confirmation_code: The one-time code emailed to the user.
+            new_password: The user's chosen new password.
+
+        Raises:
+            ValidationError: If the new password violates the password
+                policy (``InvalidPasswordException``), or the confirmation
+                code does not match (``CodeMismatchException``) or has
+                expired (``ExpiredCodeException``).
+            RateLimitError: If Cognito reports a rate limit condition
+                (``LimitExceededException`` or ``TooManyRequestsException``).
+        """
+
+    @abstractmethod
+    async def respond_to_challenge(
+        self,
+        challenge_name: str,
+        session: str,
+        challenge_responses: dict[str, str],
+    ) -> ChallengeResult:
+        """Respond to a Cognito authentication challenge.
+
+        Calls Cognito RespondToAuthChallenge to resolve a pending
+        challenge (e.g. ``NEW_PASSWORD_REQUIRED``, ``SMS_MFA``) identified
+        by the challenge session issued during the login flow.
+
+        Args:
+            challenge_name: The Cognito challenge type being answered.
+            session: The opaque challenge session token issued by Cognito
+                that binds this response to the in-progress authentication.
+            challenge_responses: The key-value pairs required by Cognito to
+                resolve the specific challenge.
+
+        Returns:
+            A ChallengeResult carrying EITHER a TokenPair when the
+            challenge completes authentication, OR the next challenge
+            (challenge_name and session) when Cognito requires a
+            further step.
+
+        Raises:
+            InvalidCredentialsError: If the challenge session is invalid
+                or expired (``NotAuthorizedException`` or
+                ``CodeMismatchException`` on the session).
+            ValidationError: If the new password supplied for a
+                ``NEW_PASSWORD_REQUIRED`` challenge violates the password
+                policy (``InvalidPasswordException``).
         """

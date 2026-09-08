@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from application.dtos.auth.login_output_dto import LoginOutputDTO
-from domain.entities.token_pair import TokenPair
+from domain.entities import ChallengeResult, TokenPair
 from domain.errors.domain_error import DomainError
 from domain.errors.invalid_credentials_error import InvalidCredentialsError
+from domain.errors.rate_limit_error import RateLimitError
 from domain.errors.validation_error import ValidationError
 from interfaces.http.controllers.auth_controller import AuthController
 
@@ -402,3 +404,451 @@ class TestHandleLogout:
         assert response["statusCode"] == 500
         body = json.loads(response["body"])
         assert body["error"] == "Internal server error"
+
+
+# ──── handle_forgot_password Tests ────────────────────────────────────────────
+
+
+class TestHandleForgotPassword:
+    """Tests for AuthController.handle_forgot_password."""
+
+    _GENERIC_MESSAGE = "If an account exists for this email, a reset code has been sent."
+
+    @pytest.mark.asyncio
+    async def test_successful_forgot_password_returns_200(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Successful request returns 200 with the generic anti-enumeration message."""
+        mock_cognito_service.forgot_password.return_value = None
+
+        event = _make_event({"email": "user@example.com"})
+
+        response = await controller.handle_forgot_password(event)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["message"] == self._GENERIC_MESSAGE
+        mock_cognito_service.forgot_password.assert_awaited_once_with("user@example.com")
+
+    @pytest.mark.asyncio
+    async def test_missing_body_returns_400(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Request with no body returns 400 and does not call Cognito."""
+        event: dict[str, Any] = {"headers": {}}
+
+        response = await controller.handle_forgot_password(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid or missing request body"
+        mock_cognito_service.forgot_password.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_invalid_json_body_returns_400(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Request with invalid JSON body returns 400 and does not call Cognito."""
+        event: dict[str, Any] = {"headers": {}, "body": "not json"}
+
+        response = await controller.handle_forgot_password(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid or missing request body"
+        mock_cognito_service.forgot_password.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_invalid_email_returns_400_and_skips_cognito(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """A syntactically invalid email returns 400 without invoking Cognito."""
+        event = _make_event({"email": "not-an-email"})
+
+        response = await controller.handle_forgot_password(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid request: invalid email"
+        mock_cognito_service.forgot_password.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_returns_429(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """RateLimitError from Cognito returns 429."""
+        mock_cognito_service.forgot_password.side_effect = RateLimitError()
+
+        event = _make_event({"email": "user@example.com"})
+
+        response = await controller.handle_forgot_password(event)
+
+        assert response["statusCode"] == 429
+        body = json.loads(response["body"])
+        assert body["error"] == "Too many requests, please try again later"
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_returns_500(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Unexpected exception returns 500."""
+        mock_cognito_service.forgot_password.side_effect = RuntimeError("AWS down")
+
+        event = _make_event({"email": "user@example.com"})
+
+        response = await controller.handle_forgot_password(event)
+
+        assert response["statusCode"] == 500
+        body = json.loads(response["body"])
+        assert body["error"] == "Internal server error"
+
+
+# ──── handle_confirm_forgot_password Tests ────────────────────────────────────
+
+
+class TestHandleConfirmForgotPassword:
+    """Tests for AuthController.handle_confirm_forgot_password."""
+
+    @pytest.mark.asyncio
+    async def test_successful_confirm_returns_200_without_tokens(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Success returns 200 with a generic message and no auth tokens (Req 2.3)."""
+        mock_cognito_service.confirm_forgot_password.return_value = None
+
+        event = _make_event({
+            "email": "user@example.com",
+            "confirmation_code": "123456",
+            "new_password": "NewSecureP@ss1",
+        })
+
+        response = await controller.handle_confirm_forgot_password(event)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["message"] == "Password has been reset. Please log in."
+        # No authentication tokens leak into the confirm response.
+        assert "access_token" not in body
+        assert "id_token" not in body
+        assert "refresh_token" not in body
+        mock_cognito_service.confirm_forgot_password.assert_awaited_once_with(
+            "user@example.com", "123456", "NewSecureP@ss1"
+        )
+
+    @pytest.mark.asyncio
+    async def test_missing_body_returns_400(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Request with no body returns 400 and does not call Cognito."""
+        event: dict[str, Any] = {"headers": {}}
+
+        response = await controller.handle_confirm_forgot_password(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid or missing request body"
+        mock_cognito_service.confirm_forgot_password.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_missing_field_returns_400_and_skips_cognito(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """A missing required field returns 400 without invoking Cognito."""
+        event = _make_event({
+            "email": "user@example.com",
+            "confirmation_code": "123456",
+            # new_password missing
+        })
+
+        response = await controller.handle_confirm_forgot_password(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid request: missing required fields"
+        mock_cognito_service.confirm_forgot_password.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_validation_error_returns_400_with_message(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """ValidationError from Cognito (e.g. bad code) returns 400 with the message."""
+        mock_cognito_service.confirm_forgot_password.side_effect = ValidationError(
+            "Invalid confirmation code"
+        )
+
+        event = _make_event({
+            "email": "user@example.com",
+            "confirmation_code": "000000",
+            "new_password": "NewSecureP@ss1",
+        })
+
+        response = await controller.handle_confirm_forgot_password(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid confirmation code"
+
+    @pytest.mark.asyncio
+    async def test_rate_limit_returns_429(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """RateLimitError from Cognito returns 429."""
+        mock_cognito_service.confirm_forgot_password.side_effect = RateLimitError()
+
+        event = _make_event({
+            "email": "user@example.com",
+            "confirmation_code": "123456",
+            "new_password": "NewSecureP@ss1",
+        })
+
+        response = await controller.handle_confirm_forgot_password(event)
+
+        assert response["statusCode"] == 429
+        body = json.loads(response["body"])
+        assert body["error"] == "Too many requests, please try again later"
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_returns_500(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Unexpected exception returns 500."""
+        mock_cognito_service.confirm_forgot_password.side_effect = RuntimeError("AWS down")
+
+        event = _make_event({
+            "email": "user@example.com",
+            "confirmation_code": "123456",
+            "new_password": "NewSecureP@ss1",
+        })
+
+        response = await controller.handle_confirm_forgot_password(event)
+
+        assert response["statusCode"] == 500
+        body = json.loads(response["body"])
+        assert body["error"] == "Internal server error"
+
+
+# ──── handle_respond_to_challenge Tests ───────────────────────────────────────
+
+
+class TestHandleRespondToChallenge:
+    """Tests for AuthController.handle_respond_to_challenge."""
+
+    @pytest.mark.asyncio
+    async def test_authenticated_result_returns_200_with_tokens(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """An authenticated ChallengeResult returns 200 with the token set and no challenge_name."""
+        mock_cognito_service.respond_to_challenge.return_value = ChallengeResult.authenticated(
+            TokenPair(
+                access_token="access-token-123",
+                id_token="id-token-456",
+                refresh_token="refresh-token-789",
+                expires_in=3600,
+            )
+        )
+
+        event = _make_event({
+            "challenge_name": "NEW_PASSWORD_REQUIRED",
+            "session": "session-token-abc",
+            "challenge_responses": {"NEW_PASSWORD": "NewSecureP@ss1", "USERNAME": "user"},
+        })
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["access_token"] == "access-token-123"
+        assert body["id_token"] == "id-token-456"
+        assert body["refresh_token"] == "refresh-token-789"
+        assert body["expires_in"] == 3600
+        # Authenticated shape carries no challenge_name.
+        assert "challenge_name" not in body
+        mock_cognito_service.respond_to_challenge.assert_awaited_once_with(
+            "NEW_PASSWORD_REQUIRED",
+            "session-token-abc",
+            {"NEW_PASSWORD": "NewSecureP@ss1", "USERNAME": "user"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_next_challenge_result_returns_200_without_tokens(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """A next-challenge ChallengeResult returns 200 with challenge_name + session and no tokens."""
+        mock_cognito_service.respond_to_challenge.return_value = ChallengeResult.next_challenge(
+            "SMS_MFA", "next-session-xyz"
+        )
+
+        event = _make_event({
+            "challenge_name": "SOFTWARE_TOKEN_MFA",
+            "session": "session-token-abc",
+            "challenge_responses": {"SOFTWARE_TOKEN_MFA_CODE": "000111"},
+        })
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 200
+        body = json.loads(response["body"])
+        assert body["challenge_name"] == "SMS_MFA"
+        assert body["session"] == "next-session-xyz"
+        # Next-challenge shape carries no tokens.
+        assert "access_token" not in body
+        assert "id_token" not in body
+        assert "refresh_token" not in body
+
+    @pytest.mark.asyncio
+    async def test_missing_body_returns_400(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Request with no body returns 400 and does not call Cognito."""
+        event: dict[str, Any] = {"headers": {}}
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid or missing request body"
+        mock_cognito_service.respond_to_challenge.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unsupported_challenge_name_returns_400_and_skips_cognito(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """An unsupported challenge_name returns 400 without invoking Cognito."""
+        event = _make_event({
+            "challenge_name": "NOT_A_REAL_CHALLENGE",
+            "session": "session-token-abc",
+            "challenge_responses": {"NEW_PASSWORD": "NewSecureP@ss1"},
+        })
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid request: missing or invalid fields"
+        mock_cognito_service.respond_to_challenge.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_empty_challenge_responses_returns_400_and_skips_cognito(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """An empty challenge_responses map returns 400 without invoking Cognito."""
+        event = _make_event({
+            "challenge_name": "NEW_PASSWORD_REQUIRED",
+            "session": "session-token-abc",
+            "challenge_responses": {},
+        })
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Invalid request: missing or invalid fields"
+        mock_cognito_service.respond_to_challenge.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_invalid_credentials_returns_401(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """InvalidCredentialsError (invalid/expired session) returns 401."""
+        mock_cognito_service.respond_to_challenge.side_effect = InvalidCredentialsError()
+
+        event = _make_event({
+            "challenge_name": "NEW_PASSWORD_REQUIRED",
+            "session": "expired-session",
+            "challenge_responses": {"NEW_PASSWORD": "NewSecureP@ss1"},
+        })
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 401
+        body = json.loads(response["body"])
+        assert body["error"] == "Challenge session is invalid or expired"
+
+    @pytest.mark.asyncio
+    async def test_validation_error_returns_400_with_message(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """ValidationError (e.g. password policy) returns 400 with the message."""
+        mock_cognito_service.respond_to_challenge.side_effect = ValidationError(
+            "Password does not meet policy"
+        )
+
+        event = _make_event({
+            "challenge_name": "NEW_PASSWORD_REQUIRED",
+            "session": "session-token-abc",
+            "challenge_responses": {"NEW_PASSWORD": "weak"},
+        })
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 400
+        body = json.loads(response["body"])
+        assert body["error"] == "Password does not meet policy"
+
+    @pytest.mark.asyncio
+    async def test_unexpected_error_returns_500(
+        self, controller: AuthController, mock_cognito_service: AsyncMock
+    ) -> None:
+        """Unexpected exception returns 500."""
+        mock_cognito_service.respond_to_challenge.side_effect = RuntimeError("AWS down")
+
+        event = _make_event({
+            "challenge_name": "NEW_PASSWORD_REQUIRED",
+            "session": "session-token-abc",
+            "challenge_responses": {"NEW_PASSWORD": "NewSecureP@ss1"},
+        })
+
+        response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 500
+        body = json.loads(response["body"])
+        assert body["error"] == "Internal server error"
+
+
+# ──── Secrets-not-logged Tests ────────────────────────────────────────────────
+
+
+class TestSecretsNotLogged:
+    """Ensure sensitive inputs never reach log output (Req 4.3)."""
+
+    @pytest.mark.asyncio
+    async def test_confirm_forgot_password_does_not_log_new_password(
+        self, controller: AuthController, mock_cognito_service: AsyncMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A logged error path for confirm-forgot-password must not leak the new_password."""
+        secret_password = "S3cret-N3ver-Log-Me!"
+        mock_cognito_service.confirm_forgot_password.side_effect = RuntimeError("AWS down")
+
+        event = _make_event({
+            "email": "user@example.com",
+            "confirmation_code": "123456",
+            "new_password": secret_password,
+        })
+
+        with caplog.at_level(logging.DEBUG):
+            response = await controller.handle_confirm_forgot_password(event)
+
+        assert response["statusCode"] == 500
+        assert secret_password not in caplog.text
+
+    @pytest.mark.asyncio
+    async def test_respond_to_challenge_does_not_log_session_or_password(
+        self, controller: AuthController, mock_cognito_service: AsyncMock, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """A logged error path for respond-to-challenge must not leak the session or new_password."""
+        secret_session = "sess-DO-NOT-LOG-abcdef123456"
+        secret_password = "Ch4llenge-S3cret!"
+        mock_cognito_service.respond_to_challenge.side_effect = RuntimeError("AWS down")
+
+        event = _make_event({
+            "challenge_name": "NEW_PASSWORD_REQUIRED",
+            "session": secret_session,
+            "challenge_responses": {"NEW_PASSWORD": secret_password},
+        })
+
+        with caplog.at_level(logging.DEBUG):
+            response = await controller.handle_respond_to_challenge(event)
+
+        assert response["statusCode"] == 500
+        assert secret_session not in caplog.text
+        assert secret_password not in caplog.text

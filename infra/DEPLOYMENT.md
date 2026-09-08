@@ -45,6 +45,33 @@ de la cuenta AWS de destino.
    pip install -r requirements.txt
    ```
 
+4. **Secrets de social login** (una sola vez por cuenta+región, **antes** del
+   primer deploy). El stack referencia tres secretos de AWS Secrets Manager por
+   nombre. Si no existen, `cdk deploy` falla. Créalos con las credenciales
+   reales de las apps de Google/Facebook y un secreto HMAC aleatorio:
+
+   ```powershell
+   # Google OAuth (client_id + client_secret del proyecto de Google Cloud)
+   aws secretsmanager create-secret --name social/google --region sa-east-1 `
+     --secret-string '{"client_id":"<GOOGLE_CLIENT_ID>","client_secret":"<GOOGLE_CLIENT_SECRET>"}'
+
+   # Facebook Login (client_id + client_secret de la app de Meta)
+   aws secretsmanager create-secret --name social/facebook --region sa-east-1 `
+     --secret-string '{"client_id":"<FB_APP_ID>","client_secret":"<FB_APP_SECRET>"}'
+
+   # Secreto HMAC para firmar el token `state` (CSRF). Genera un valor aleatorio.
+   aws secretsmanager create-secret --name social/state --region sa-east-1 `
+     --secret-string '{"state_secret":"<VALOR_ALEATORIO_LARGO>"}'
+   ```
+
+   > Los secretos son **por región**: si despliegas `dev` y `prod` en la misma
+   > región comparten los mismos tres secretos. Para regiones distintas hay que
+   > recrearlos en cada una.
+   >
+   > En la consola de Google/Facebook registra como *Authorized redirect URI* la
+   > URL del Hosted UI de Cognito:
+   > `https://sport-<env>.auth.sa-east-1.amazoncognito.com/oauth2/idpresponse`.
+
 ## 2. Bootstrap de la cuenta/región (una sola vez por cuenta+región)
 
 CDK necesita recursos base (bucket de assets, roles) en la cuenta/región. Se
@@ -126,10 +153,14 @@ Por cada entorno (`dev` / `prod`) en `sa-east-1`:
 
 - DynamoDB single-table (`PK`/`SK` + `GSI1` + `GSI2`), pay-per-request.
 - Cognito User Pool + app client (tokens RS256; 1h access / 7d refresh).
-- 5 Lambdas (auth, registration, account-types, members, post-confirmation),
-  Python 3.12, empaquetadas desde `../src`.
-- REST API Gateway con todas las rutas + `GET /health` público, con throttling
-  de stage.
+- Social login: identity providers de Google y Facebook, dominio Hosted UI
+  (`https://sport-<env>.auth.sa-east-1.amazoncognito.com`) y grant OAuth
+  (authorization code + scopes openid/email/profile). Credenciales tomadas de
+  los secretos `social/google` y `social/facebook` (ver paso 1.4).
+- 6 Lambdas (auth, registration, account-types, members, post-confirmation y
+  oauth para `/auth/social/*`), Python 3.12, empaquetadas desde `../src`.
+- REST API Gateway con todas las rutas + `/auth/social/{proxy+}` (social login)
+  + `GET /health` público, con throttling de stage.
 - WAF Web ACL regional (reglas administradas AWS + rate-based por IP).
 - SNS topic de alarmas + alarmas CloudWatch (Lambdas, API, DynamoDB).
 

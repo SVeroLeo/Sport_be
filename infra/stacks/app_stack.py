@@ -139,6 +139,17 @@ class AccountManagementStack(Stack):
                 "cognito-idp:InitiateAuth",
             )
 
+        # Password-recovery / challenge endpoints served by AuthFn call these
+        # client-based Cognito operations (see password-recovery-challenge spec).
+        # Only AuthFn needs them, so this grant is separate from the shared loop
+        # above (registration_fn / member_fn do NOT require the recovery actions).
+        user_pool.grant(
+            auth_fn,
+            "cognito-idp:ForgotPassword",
+            "cognito-idp:ConfirmForgotPassword",
+            "cognito-idp:RespondToAuthChallenge",
+        )
+
         # Cognito Post Confirmation trigger Lambda (creates records on confirm).
         # Placeholder logic today; see the handler docstring and TODO.md.
         #
@@ -567,6 +578,18 @@ class AccountManagementStack(Stack):
         auth.add_resource("refresh").add_method("POST", auth_integration)
         auth.add_resource("logout").add_method("POST", auth_integration)
         auth.add_resource("register").add_method("POST", registration_integration)
+
+        # Password-recovery / challenge endpoints (public, no authorizer —
+        # consistent with login/refresh/logout). All three POST routes are
+        # served by the same AuthFn LambdaIntegration; see the
+        # password-recovery-challenge spec.
+        auth.add_resource("forgot-password").add_method("POST", auth_integration)
+        auth.add_resource("confirm-forgot-password").add_method(
+            "POST", auth_integration
+        )
+        auth.add_resource("respond-to-challenge").add_method(
+            "POST", auth_integration
+        )
 
         # /auth/social/{proxy+}  →  OAuthHandlerFn (authorize, callback,
         # select-tenant). A greedy {proxy+} resource with ANY method lets the

@@ -499,3 +499,234 @@ async def test_admin_update_user_attributes_calls_cognito(social_service, mock_c
     assert kwargs["UserPoolId"] == TEST_USER_POOL_ID
     assert kwargs["Username"] == "cognito-sub-1"
     assert {"Name": "custom:provider", "Value": "google"} in kwargs["UserAttributes"]
+
+# ──── Tests: forgot_password (Task 5.1) ───────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_calls_cognito_with_client_id_and_username(social_service, mock_client):
+    """Should call Cognito ForgotPassword with the App Client ID and username."""
+    result = await social_service.forgot_password(TEST_EMAIL)
+
+    assert result is None
+    mock_client.forgot_password.assert_called_once()
+    kwargs = mock_client.forgot_password.call_args.kwargs
+    assert kwargs["ClientId"] == TEST_CLIENT_ID
+    assert kwargs["Username"] == TEST_EMAIL
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_swallows_user_not_found(social_service, mock_client):
+    """Should treat UserNotFoundException as success (anti-enumeration) and return None."""
+    from botocore.exceptions import ClientError
+
+    mock_client.forgot_password.side_effect = ClientError(
+        {"Error": {"Code": "UserNotFoundException", "Message": "not found"}},
+        "ForgotPassword",
+    )
+
+    result = await social_service.forgot_password("nobody@example.com")
+
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_raises_rate_limit_on_limit_exceeded(social_service, mock_client):
+    """Should raise RateLimitError when Cognito reports LimitExceededException."""
+    from botocore.exceptions import ClientError
+
+    from domain.errors.rate_limit_error import RateLimitError
+
+    mock_client.forgot_password.side_effect = ClientError(
+        {"Error": {"Code": "LimitExceededException", "Message": "slow down"}},
+        "ForgotPassword",
+    )
+
+    with pytest.raises(RateLimitError):
+        await social_service.forgot_password(TEST_EMAIL)
+
+
+@pytest.mark.asyncio
+async def test_forgot_password_reraises_unexpected_error(social_service, mock_client):
+    """Should re-raise the ClientError for an unexpected Cognito error code."""
+    from botocore.exceptions import ClientError
+
+    mock_client.forgot_password.side_effect = ClientError(
+        {"Error": {"Code": "InternalErrorException", "Message": "boom"}},
+        "ForgotPassword",
+    )
+
+    with pytest.raises(ClientError):
+        await social_service.forgot_password(TEST_EMAIL)
+
+
+# ──── Tests: confirm_forgot_password (Task 5.2) ───────────────────────────────
+
+TEST_CONFIRMATION_CODE = "123456"
+TEST_NEW_PASSWORD = "NewPass1!"
+
+
+@pytest.mark.asyncio
+async def test_confirm_forgot_password_calls_cognito_on_success(social_service, mock_client):
+    """Should call Cognito ConfirmForgotPassword with the supplied values."""
+    await social_service.confirm_forgot_password(
+        TEST_EMAIL, TEST_CONFIRMATION_CODE, TEST_NEW_PASSWORD
+    )
+
+    mock_client.confirm_forgot_password.assert_called_once()
+    kwargs = mock_client.confirm_forgot_password.call_args.kwargs
+    assert kwargs["ClientId"] == TEST_CLIENT_ID
+    assert kwargs["Username"] == TEST_EMAIL
+    assert kwargs["ConfirmationCode"] == TEST_CONFIRMATION_CODE
+    assert kwargs["Password"] == TEST_NEW_PASSWORD
+
+
+@pytest.mark.asyncio
+async def test_confirm_forgot_password_raises_validation_on_invalid_password(social_service, mock_client):
+    """Should raise ValidationError conveying the Cognito policy message."""
+    from botocore.exceptions import ClientError
+
+    mock_client.confirm_forgot_password.side_effect = ClientError(
+        {"Error": {"Code": "InvalidPasswordException", "Message": "Password too short"}},
+        "ConfirmForgotPassword",
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.confirm_forgot_password(
+            TEST_EMAIL, TEST_CONFIRMATION_CODE, "short"
+        )
+    assert exc_info.value.message == "Password too short"
+
+
+@pytest.mark.asyncio
+async def test_confirm_forgot_password_raises_validation_on_code_mismatch(social_service, mock_client):
+    """Should raise ValidationError when the confirmation code does not match."""
+    from botocore.exceptions import ClientError
+
+    mock_client.confirm_forgot_password.side_effect = ClientError(
+        {"Error": {"Code": "CodeMismatchException", "Message": "wrong code"}},
+        "ConfirmForgotPassword",
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.confirm_forgot_password(
+            TEST_EMAIL, "000000", TEST_NEW_PASSWORD
+        )
+    assert exc_info.value.message == "Invalid confirmation code"
+
+
+@pytest.mark.asyncio
+async def test_confirm_forgot_password_raises_validation_on_expired_code(social_service, mock_client):
+    """Should raise ValidationError when the confirmation code has expired."""
+    from botocore.exceptions import ClientError
+
+    mock_client.confirm_forgot_password.side_effect = ClientError(
+        {"Error": {"Code": "ExpiredCodeException", "Message": "expired"}},
+        "ConfirmForgotPassword",
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.confirm_forgot_password(
+            TEST_EMAIL, TEST_CONFIRMATION_CODE, TEST_NEW_PASSWORD
+        )
+    assert exc_info.value.message == "Confirmation code has expired"
+
+
+@pytest.mark.asyncio
+async def test_confirm_forgot_password_raises_rate_limit_on_limit_exceeded(social_service, mock_client):
+    """Should raise RateLimitError when Cognito reports LimitExceededException."""
+    from botocore.exceptions import ClientError
+
+    from domain.errors.rate_limit_error import RateLimitError
+
+    mock_client.confirm_forgot_password.side_effect = ClientError(
+        {"Error": {"Code": "LimitExceededException", "Message": "slow down"}},
+        "ConfirmForgotPassword",
+    )
+
+    with pytest.raises(RateLimitError):
+        await social_service.confirm_forgot_password(
+            TEST_EMAIL, TEST_CONFIRMATION_CODE, TEST_NEW_PASSWORD
+        )
+
+
+# ──── Tests: respond_to_challenge (Task 5.3) ──────────────────────────────────
+
+TEST_SESSION = "opaque-session-token"
+
+
+@pytest.mark.asyncio
+async def test_respond_to_challenge_returns_authenticated_result(social_service, mock_client):
+    """Should return an authenticated ChallengeResult when tokens are returned."""
+    mock_client.respond_to_auth_challenge.return_value = {
+        "AuthenticationResult": {
+            "AccessToken": "access-xyz",
+            "IdToken": "id-xyz",
+            "RefreshToken": "refresh-xyz",
+            "ExpiresIn": 3600,
+        }
+    }
+
+    result = await social_service.respond_to_challenge(
+        "NEW_PASSWORD_REQUIRED", TEST_SESSION, {"NEW_PASSWORD": "NewPass1!"}
+    )
+
+    assert result.is_authenticated() is True
+    assert result.token_pair is not None
+    assert result.token_pair.access_token == "access-xyz"
+    assert result.token_pair.id_token == "id-xyz"
+    assert result.token_pair.refresh_token == "refresh-xyz"
+    assert result.token_pair.expires_in == 3600
+    assert result.next_challenge_name is None
+    assert result.next_session is None
+
+
+@pytest.mark.asyncio
+async def test_respond_to_challenge_returns_next_challenge_result(social_service, mock_client):
+    """Should return a next-challenge ChallengeResult when Cognito returns another challenge."""
+    mock_client.respond_to_auth_challenge.return_value = {
+        "ChallengeName": "SMS_MFA",
+        "Session": "next-session-token",
+    }
+
+    result = await social_service.respond_to_challenge(
+        "NEW_PASSWORD_REQUIRED", TEST_SESSION, {"NEW_PASSWORD": "NewPass1!"}
+    )
+
+    assert result.is_authenticated() is False
+    assert result.token_pair is None
+    assert result.next_challenge_name == "SMS_MFA"
+    assert result.next_session == "next-session-token"
+
+
+@pytest.mark.asyncio
+async def test_respond_to_challenge_raises_invalid_credentials_on_not_authorized(social_service, mock_client):
+    """Should raise InvalidCredentialsError when the challenge session is invalid/expired."""
+    from botocore.exceptions import ClientError
+
+    mock_client.respond_to_auth_challenge.side_effect = ClientError(
+        {"Error": {"Code": "NotAuthorizedException", "Message": "invalid session"}},
+        "RespondToAuthChallenge",
+    )
+
+    with pytest.raises(InvalidCredentialsError):
+        await social_service.respond_to_challenge(
+            "NEW_PASSWORD_REQUIRED", TEST_SESSION, {"NEW_PASSWORD": "NewPass1!"}
+        )
+
+
+@pytest.mark.asyncio
+async def test_respond_to_challenge_raises_validation_on_invalid_password(social_service, mock_client):
+    """Should raise ValidationError conveying the Cognito policy message on InvalidPassword."""
+    from botocore.exceptions import ClientError
+
+    mock_client.respond_to_auth_challenge.side_effect = ClientError(
+        {"Error": {"Code": "InvalidPasswordException", "Message": "Password does not meet policy"}},
+        "RespondToAuthChallenge",
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.respond_to_challenge(
+            "NEW_PASSWORD_REQUIRED", TEST_SESSION, {"NEW_PASSWORD": "weak"}
+        )
+    assert exc_info.value.message == "Password does not meet policy"

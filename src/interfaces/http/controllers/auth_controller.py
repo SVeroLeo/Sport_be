@@ -17,9 +17,17 @@ import json
 import logging
 from typing import TYPE_CHECKING, Any
 
+from application.dtos.auth.confirm_forgot_password_input_dto import (
+    ConfirmForgotPasswordInputDTO,
+)
+from application.dtos.auth.forgot_password_input_dto import ForgotPasswordInputDTO
 from application.dtos.auth.login_input_dto import LoginInputDTO
+from application.dtos.auth.respond_to_challenge_input_dto import (
+    RespondToChallengeInputDTO,
+)
 from domain.errors.domain_error import DomainError
 from domain.errors.invalid_credentials_error import InvalidCredentialsError
+from domain.errors.rate_limit_error import RateLimitError
 from domain.errors.validation_error import ValidationError
 
 if TYPE_CHECKING:
@@ -182,6 +190,160 @@ class AuthController:
             "headers": {"Content-Type": "application/json"},
             "body": "",
         }
+
+    # ──── Forgot Password ─────────────────────────────────────────────────────
+
+    async def handle_forgot_password(self, event: dict[str, Any]) -> dict[str, Any]:
+        """Handle POST /auth/forgot-password requests.
+
+        Initiates password recovery via Cognito. To prevent user enumeration,
+        the response is byte-identical whether or not the email is registered:
+        the adapter swallows ``UserNotFoundException`` and this handler always
+        returns the same generic 200 message on success.
+
+        Args:
+            event: API Gateway Lambda proxy event dict.
+
+        Returns:
+            API Gateway response dict. Always 200 with a generic message on
+            success; 400 for invalid input, 429 on rate limit, 500 on error.
+        """
+        body = self._parse_body(event)
+        if body is None:
+            return self._error_response(400, "Invalid or missing request body")
+
+        try:
+            input_dto = ForgotPasswordInputDTO(email=body.get("email", ""))
+        except Exception:
+            return self._error_response(400, "Invalid request: invalid email")
+
+        try:
+            await self._cognito_service.forgot_password(input_dto.email)
+        except RateLimitError:
+            return self._error_response(429, "Too many requests, please try again later")
+        except Exception:
+            logger.exception("Unexpected error during forgot-password")
+            return self._error_response(500, "Internal server error")
+
+        # Always the same generic response (anti-enumeration; the adapter
+        # already swallows UserNotFound).
+        return self._success_response(200, {
+            "message": "If an account exists for this email, a reset code has been sent.",
+        })
+
+    # ──── Confirm Forgot Password ─────────────────────────────────────────────
+
+    async def handle_confirm_forgot_password(
+        self, event: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Handle POST /auth/confirm-forgot-password requests.
+
+        Completes the password reset using the confirmation code emailed to
+        the user plus a new password. The success response never contains
+        authentication tokens — the user must log in afterward.
+
+        Args:
+            event: API Gateway Lambda proxy event dict.
+
+        Returns:
+            API Gateway response dict. 200 with a generic message on success;
+            400 for invalid input or policy/code errors, 429 on rate limit,
+            500 on unexpected error.
+        """
+        body = self._parse_body(event)
+        if body is None:
+            return self._error_response(400, "Invalid or missing request body")
+
+        try:
+            input_dto = ConfirmForgotPasswordInputDTO(
+                email=body.get("email", ""),
+                confirmation_code=body.get("confirmation_code", ""),
+                new_password=body.get("new_password", ""),
+            )
+        except Exception:
+            return self._error_response(400, "Invalid request: missing required fields")
+
+        try:
+            await self._cognito_service.confirm_forgot_password(
+                input_dto.email,
+                input_dto.confirmation_code,
+                input_dto.new_password,
+            )
+        except ValidationError as e:
+            return self._error_response(400, e.message)
+        except RateLimitError:
+            return self._error_response(429, "Too many requests, please try again later")
+        except Exception:
+            logger.exception("Unexpected error during confirm-forgot-password")
+            return self._error_response(500, "Internal server error")
+
+        # Success response never carries tokens (Req 2.3).
+        return self._success_response(200, {
+            "message": "Password has been reset. Please log in.",
+        })
+
+    # ──── Respond To Challenge ────────────────────────────────────────────────
+
+    async def handle_respond_to_challenge(
+        self, event: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Handle POST /auth/respond-to-challenge requests.
+
+        Answers a pending Cognito authentication challenge. On success the
+        result is bimodal: either an authenticated Token_Set (same shape as
+        login, without a ``challenge_name``) or the next challenge to solve
+        (``challenge_name`` + ``session``, without tokens).
+
+        Args:
+            event: API Gateway Lambda proxy event dict.
+
+        Returns:
+            API Gateway response dict. 200 with tokens or next-challenge on
+            success; 400 for invalid input/policy errors, 401 for an invalid
+            or expired session, 500 on unexpected error.
+        """
+        body = self._parse_body(event)
+        if body is None:
+            return self._error_response(400, "Invalid or missing request body")
+
+        try:
+            input_dto = RespondToChallengeInputDTO(
+                challenge_name=body.get("challenge_name", ""),
+                session=body.get("session", ""),
+                # Default to an empty dict so a missing value fails validation
+                # (challenge_responses must be a non-empty map).
+                challenge_responses=body.get("challenge_responses", {}),
+            )
+        except Exception:
+            return self._error_response(400, "Invalid request: missing or invalid fields")
+
+        try:
+            result = await self._cognito_service.respond_to_challenge(
+                input_dto.challenge_name,
+                input_dto.session,
+                input_dto.challenge_responses,
+            )
+        except InvalidCredentialsError:
+            return self._error_response(401, "Challenge session is invalid or expired")
+        except ValidationError as e:
+            return self._error_response(400, e.message)
+        except Exception:
+            logger.exception("Unexpected error during respond-to-challenge")
+            return self._error_response(500, "Internal server error")
+
+        if result.is_authenticated():
+            token_pair = result.token_pair
+            return self._success_response(200, {
+                "access_token": token_pair.access_token,
+                "id_token": token_pair.id_token,
+                "refresh_token": token_pair.refresh_token,
+                "expires_in": token_pair.expires_in,
+            })
+
+        return self._success_response(200, {
+            "challenge_name": result.next_challenge_name,
+            "session": result.next_session,
+        })
 
     # ──── Private Helpers ─────────────────────────────────────────────────────
 

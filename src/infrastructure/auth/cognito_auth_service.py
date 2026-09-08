@@ -19,9 +19,11 @@ import boto3
 from botocore.exceptions import ClientError
 
 from application.ports.i_cognito_service import ICognitoService
+from domain.entities.challenge_result import ChallengeResult
 from domain.entities.token_pair import TokenPair
 from domain.errors.conflict_error import ConflictError
 from domain.errors.invalid_credentials_error import InvalidCredentialsError
+from domain.errors.rate_limit_error import RateLimitError
 from domain.errors.validation_error import ValidationError
 
 if TYPE_CHECKING:
@@ -452,3 +454,162 @@ class CognitoAuthService(ICognitoService):
                 {"Name": name, "Value": value} for name, value in attributes.items()
             ],
         )
+
+    # ──── Password Recovery ───────────────────────────────────────────────────
+
+    async def forgot_password(self, email: str) -> None:
+        """Initiate a password reset via Cognito ForgotPassword.
+
+        Triggers Cognito to email a confirmation code to the user. To prevent
+        user enumeration (Req 1.3), ``UserNotFoundException`` is swallowed and
+        treated as a silent success so callers cannot distinguish a registered
+        email from an unregistered one. The email is NOT logged in that branch.
+
+        Args:
+            email: The user's email address (used as Cognito username).
+
+        Raises:
+            RateLimitError: If Cognito reports a rate limit condition
+                (``LimitExceededException`` or ``TooManyRequestsException``).
+        """
+        # SECRET_HASH-conditional extension point (Req 1.8): the current App
+        # Client has no client secret, so SECRET_HASH is omitted. If a secret
+        # is configured in the future, add
+        #   SecretHash=_secret_hash(email, self._client_id, self._client_secret)
+        # to the call below using the same HMAC derivation as the other methods.
+        try:
+            self._client.forgot_password(
+                ClientId=self._client_id,
+                Username=email,
+            )
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            if error_code == "UserNotFoundException":
+                # Anti-enumeration: swallow silently, do not log the email.
+                return None
+            if error_code in ("LimitExceededException", "TooManyRequestsException"):
+                raise RateLimitError() from e
+            logger.error("Unexpected Cognito error during forgot_password: %s", error_code)
+            raise
+        return None
+
+    async def confirm_forgot_password(
+        self,
+        email: str,
+        confirmation_code: str,
+        new_password: str,
+    ) -> None:
+        """Complete a password reset via Cognito ConfirmForgotPassword.
+
+        Uses the confirmation code emailed to the user plus the chosen new
+        password to finalize the reset. No tokens are returned; the user must
+        log in afterward. The password and confirmation code are NEVER logged.
+
+        Args:
+            email: The user's email address.
+            confirmation_code: The one-time code emailed to the user.
+            new_password: The user's chosen new password.
+
+        Raises:
+            ValidationError: If the new password violates the password policy
+                (``InvalidPasswordException`` — the Cognito message is used as
+                the reason, Req 2.7), the confirmation code does not match
+                (``CodeMismatchException``), or has expired
+                (``ExpiredCodeException``).
+            RateLimitError: If Cognito reports a rate limit condition
+                (``LimitExceededException`` or ``TooManyRequestsException``).
+        """
+        # SECRET_HASH-conditional extension point (Req 2.12): omitted today
+        # (App Client has no secret). If a secret is configured, add
+        #   SecretHash=_secret_hash(email, self._client_id, self._client_secret)
+        # to the call below using the same HMAC derivation as the other methods.
+        try:
+            self._client.confirm_forgot_password(
+                ClientId=self._client_id,
+                Username=email,
+                ConfirmationCode=confirmation_code,
+                Password=new_password,
+            )
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            if error_code == "InvalidPasswordException":
+                # Convey the Cognito-reported policy reason (Req 2.7).
+                raise ValidationError(e.response["Error"]["Message"]) from e
+            if error_code == "CodeMismatchException":
+                raise ValidationError("Invalid confirmation code") from e
+            if error_code == "ExpiredCodeException":
+                raise ValidationError("Confirmation code has expired") from e
+            if error_code in ("LimitExceededException", "TooManyRequestsException"):
+                raise RateLimitError() from e
+            logger.error(
+                "Unexpected Cognito error during confirm_forgot_password: %s", error_code
+            )
+            raise
+
+    async def respond_to_challenge(
+        self,
+        challenge_name: str,
+        session: str,
+        challenge_responses: dict[str, str],
+    ) -> ChallengeResult:
+        """Respond to a Cognito authentication challenge.
+
+        Calls Cognito RespondToAuthChallenge to resolve a pending challenge
+        (e.g. ``NEW_PASSWORD_REQUIRED``, ``SMS_MFA``) identified by the
+        challenge session issued during login. The session and any returned
+        tokens are NEVER logged.
+
+        Args:
+            challenge_name: The Cognito challenge type being answered.
+            session: The opaque challenge session token issued by Cognito.
+            challenge_responses: The key-value pairs required to resolve the
+                specific challenge.
+
+        Returns:
+            A ChallengeResult carrying EITHER a TokenPair when the challenge
+            completes authentication, OR the next challenge (challenge_name and
+            session) when Cognito requires a further step.
+
+        Raises:
+            InvalidCredentialsError: If the challenge session is invalid or
+                expired (``NotAuthorizedException`` or ``CodeMismatchException``).
+            ValidationError: If the new password supplied for a
+                ``NEW_PASSWORD_REQUIRED`` challenge violates the password policy
+                (``InvalidPasswordException`` — the Cognito message is used as
+                the reason, Req 3.8).
+        """
+        # SECRET_HASH-conditional extension point (Req 3.10): omitted today
+        # (App Client has no secret). If a secret is configured, inject it into
+        # the challenge responses:
+        #   challenge_responses["SECRET_HASH"] = _secret_hash(
+        #       username, self._client_id, self._client_secret)
+        # using the same HMAC derivation as the other methods.
+        try:
+            resp = self._client.respond_to_auth_challenge(
+                ClientId=self._client_id,
+                ChallengeName=challenge_name,
+                Session=session,
+                ChallengeResponses=challenge_responses,
+            )
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            if error_code in ("NotAuthorizedException", "CodeMismatchException"):
+                raise InvalidCredentialsError() from e
+            if error_code == "InvalidPasswordException":
+                raise ValidationError(e.response["Error"]["Message"]) from e
+            logger.error(
+                "Unexpected Cognito error during respond_to_challenge: %s", error_code
+            )
+            raise
+
+        if "AuthenticationResult" in resp:
+            auth_result: dict[str, Any] = resp["AuthenticationResult"]
+            token_pair = TokenPair(
+                access_token=auth_result["AccessToken"],
+                id_token=auth_result["IdToken"],
+                refresh_token=auth_result.get("RefreshToken", ""),
+                expires_in=auth_result["ExpiresIn"],
+            )
+            return ChallengeResult.authenticated(token_pair)
+
+        return ChallengeResult.next_challenge(resp["ChallengeName"], resp["Session"])
