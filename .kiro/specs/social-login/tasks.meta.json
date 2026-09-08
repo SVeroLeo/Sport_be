@@ -1,0 +1,924 @@
+{
+  "pbtResults": {
+    "2.2 Write property test: State token HMAC integrity round-trip (Property 1)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788821859211
+    },
+    "2.3 Write property test: State token TTL enforcement (Property 2)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788821861111
+    },
+    "8.2 Write property test: Provider parameter validation (Property 3)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788825524888
+    },
+    "8.3 Write property test: Authorization URL contains all required OAuth parameters (Property 4)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788825531396
+    },
+    "11.2 Write property test: Email sanitization preserves canonical form (Property 6)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788825580864
+    },
+    "10.2 Write property test: Tenant association atomicity (Property 9)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788825878744
+    },
+    "9.6 Write property test: Token response format consistency (Property 8)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788826317058
+    },
+    "9.5 Write property test: Pending-tenant flag matches user status (Property 7)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788826325974
+    },
+    "9.4 Write property test: Social user provisioning idempotence (Property 5)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788826339102
+    },
+    "14.2 Write property test: Pending-tenant access control (Property 10)": {
+      "status": "passed",
+      "lastRunTimestamp": 1788826974778
+    }
+  },
+  "executionHistory": {
+    "1.1 Add `\"pending_tenant\"` to `UserStatus` and `registration_type=\"social\"` to `User`": [
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788819703911
+      },
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788819928644
+      }
+    ],
+    "1.3 Add `\"social\"` to `Member` valid registration types": [
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788819704935
+      },
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788819929421
+      }
+    ],
+    "1.2 Write unit tests for extended `User` entity": [
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788819939778
+      },
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788820023527
+      }
+    ],
+    "1.4 Write unit tests for `Member.create()` with `registration_type=\"social\"`": [
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788819940466
+      },
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788820022920
+      }
+    ],
+    "1. Extend domain model for social login": [
+      {
+        "executionId": "2fba6cf0-2524-4c7f-a232-316902b18e60",
+        "chatSessionId": "sess_159c15b8-6dd1-4b9c-8192-e05ca6cf0c31",
+        "timestamp": 1788820023693
+      }
+    ],
+    "2.1 Create `application/services/state_token.py` with `generate_state` and `validate_state`": [
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820476898
+      },
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820614958
+      }
+    ],
+    "2.2 Write property test: State token HMAC integrity round-trip (Property 1)": [
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820629952
+      },
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820802361
+      }
+    ],
+    "2.3 Write property test: State token TTL enforcement (Property 2)": [
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820630936
+      },
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820803303
+      }
+    ],
+    "2.4 Write unit tests for state token module": [
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820631897
+      },
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820804130
+      }
+    ],
+    "2. Implement state token module (`state_token.py`)": [
+      {
+        "executionId": "0bc2ec1e-97ab-449f-827b-cde8b4c285e6",
+        "chatSessionId": "sess_3881de39-3157-4145-9d6e-7d2179e68e71",
+        "timestamp": 1788820804257
+      }
+    ],
+    "3. Checkpoint — Ensure all domain and state-token tests pass": [
+      {
+        "executionId": "2189ecfb-6d47-415d-b2d8-24a50055e898",
+        "chatSessionId": "sess_cc1563fb-62d5-4482-be12-7227997e0cf4",
+        "timestamp": 1788821812780
+      },
+      {
+        "executionId": "2189ecfb-6d47-415d-b2d8-24a50055e898",
+        "chatSessionId": "sess_cc1563fb-62d5-4482-be12-7227997e0cf4",
+        "timestamp": 1788821876481
+      }
+    ],
+    "4.1 Extend `ICognitoService` with social-login abstract methods": [
+      {
+        "executionId": "07f973dd-b2ef-4a69-a9bc-849dc71c2ad9",
+        "chatSessionId": "sess_a10f035f-1bd1-45c9-b51f-3439eff094d1",
+        "timestamp": 1788821912630
+      },
+      {
+        "executionId": "07f973dd-b2ef-4a69-a9bc-849dc71c2ad9",
+        "chatSessionId": "sess_a10f035f-1bd1-45c9-b51f-3439eff094d1",
+        "timestamp": 1788822137868
+      }
+    ],
+    "4.2 Extend `IUserRepository` with social-login abstract methods": [
+      {
+        "executionId": "07f973dd-b2ef-4a69-a9bc-849dc71c2ad9",
+        "chatSessionId": "sess_a10f035f-1bd1-45c9-b51f-3439eff094d1",
+        "timestamp": 1788821913655
+      },
+      {
+        "executionId": "07f973dd-b2ef-4a69-a9bc-849dc71c2ad9",
+        "chatSessionId": "sess_a10f035f-1bd1-45c9-b51f-3439eff094d1",
+        "timestamp": 1788822139016
+      }
+    ],
+    "4. Add new port methods to `ICognitoService` and `IUserRepository`": [
+      {
+        "executionId": "07f973dd-b2ef-4a69-a9bc-849dc71c2ad9",
+        "chatSessionId": "sess_a10f035f-1bd1-45c9-b51f-3439eff094d1",
+        "timestamp": 1788822139094
+      }
+    ],
+    "5. Implement Cognito adapter methods for social login": [
+      {
+        "executionId": "022691d7-5980-4703-bac6-5c0bdd12b660",
+        "chatSessionId": "sess_ebad1da2-3f39-42ab-a61c-17e581e57922",
+        "timestamp": 1788822180856
+      },
+      {
+        "executionId": "022691d7-5980-4703-bac6-5c0bdd12b660",
+        "chatSessionId": "sess_ebad1da2-3f39-42ab-a61c-17e581e57922",
+        "timestamp": 1788822423206
+      }
+    ],
+    "6. Implement DynamoDB repository methods for social login": [
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822458450
+      },
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822984838
+      }
+    ],
+    "6.1 Add `find_by_cognito_sub` to `DynamoDBUserRepository`": [
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822464550
+      },
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822546543
+      }
+    ],
+    "6.2 Add `register_social_user` to `DynamoDBUserRepository`": [
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822550175
+      },
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822634210
+      }
+    ],
+    "6.3 Add `associate_tenant` to `DynamoDBUserRepository`": [
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822638022
+      },
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822705365
+      }
+    ],
+    "6.4 Write unit tests for DynamoDB repository social methods": [
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822708847
+      },
+      {
+        "executionId": "3f16b6ae-cc7c-416f-ab18-b52f44d92f53",
+        "chatSessionId": "sess_a94e2b1f-0e9f-427f-9aac-0c3946d91478",
+        "timestamp": 1788822984682
+      }
+    ],
+    "5.1 Add `exchange_code_for_tokens` to `CognitoAuthService`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017140
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823134077
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823207252
+      }
+    ],
+    "5.2 Add `admin_link_provider_for_user` to `CognitoAuthService`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017241
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823211592
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823276778
+      }
+    ],
+    "5.3 Add `admin_update_user_attributes` to `CognitoAuthService`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017353
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823280315
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823328003
+      }
+    ],
+    "5.4 Write unit tests for Cognito adapter social methods": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017425
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823336513
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825426384
+      }
+    ],
+    "7. Checkpoint — Ensure all adapter and repository tests pass": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017488
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826588422
+      }
+    ],
+    "8.1 Create `application/use_cases/social_authorize_use_case.py`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017551
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823337386
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825427237
+      }
+    ],
+    "8.2 Write property test: Provider parameter validation (Property 3)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017612
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825434344
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825700327
+      }
+    ],
+    "8.3 Write property test: Authorization URL contains all required OAuth parameters (Property 4)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017677
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825435710
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825701721
+      }
+    ],
+    "8.4 Write unit tests for `SocialAuthorizeUseCase`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017745
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825436660
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825703165
+      }
+    ],
+    "9.1 Create `application/use_cases/social_callback_use_case.py`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017805
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825437608
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825705087
+      }
+    ],
+    "9.2 Implement `_provision_new_user` internal method": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017866
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825919468
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826117235
+      }
+    ],
+    "9.3 Implement `_link_provider` internal method": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823017960
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826121051
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826201791
+      }
+    ],
+    "9.4 Write property test: Social user provisioning idempotence (Property 5)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018046
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826206996
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826405575
+      }
+    ],
+    "9.5 Write property test: Pending-tenant flag matches user status (Property 7)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018108
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826207939
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826404519
+      }
+    ],
+    "9.6 Write property test: Token response format consistency (Property 8)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018170
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826209337
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826403552
+      }
+    ],
+    "9.7 Write unit tests for `SocialCallbackUseCase`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018233
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826210060
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826402174
+      }
+    ],
+    "10.1 Create `application/use_cases/tenant_association_use_case.py`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018293
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823338496
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825428388
+      }
+    ],
+    "10.2 Write property test: Tenant association atomicity (Property 9)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018348
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825710864
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825912330
+      }
+    ],
+    "10.3 Write unit tests for `TenantAssociationUseCase`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018419
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825711669
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825913457
+      }
+    ],
+    "11.1 Create `application/dtos/social_login_dtos.py`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018504
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823028351
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823125616
+      }
+    ],
+    "11.2 Write property test: Email sanitization preserves canonical form (Property 6)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018567
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825438775
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825704084
+      }
+    ],
+    "12. Checkpoint — Ensure all use case and DTO tests pass": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018631
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826589401
+      }
+    ],
+    "13.1 Create `interface/controllers/oauth_controller.py`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018693
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826594495
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826838628
+      }
+    ],
+    "13.2 Write unit tests for `OAuthController`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018767
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826845064
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827024011
+      }
+    ],
+    "14.1 Extend `AuthGuardMiddleware` to enforce pending-tenant restriction": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018826
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826595555
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826839356
+      }
+    ],
+    "14.2 Write property test: Pending-tenant access control (Property 10)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018890
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826845985
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827019608
+      }
+    ],
+    "14.3 Write unit tests for `AuthGuardMiddleware` pending-tenant enforcement": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823018950
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826847381
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827021943
+      }
+    ],
+    "15.1 Create `oauth_handler.py` Lambda entry point": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019018
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826848365
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827023364
+      }
+    ],
+    "15.2 Create `social_login_composition_root.py`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019077
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826849336
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827020566
+      }
+    ],
+    "16. Checkpoint — Ensure all controller and middleware tests pass": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019140
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827031069
+      }
+    ],
+    "17.1 Add Cognito custom attributes and Identity Providers": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019204
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827032121
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827280441
+      }
+    ],
+    "17.2 Extend Cognito App Client for OAuth flows": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019265
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827281348
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827461633
+      }
+    ],
+    "17.3 Add `OAuthHandlerFn` Lambda and CloudWatch resources": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019329
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827466056
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827700037
+      }
+    ],
+    "17.4 Apply WAF to `/auth/social/*` API Gateway resource": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019398
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827700947
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827813812
+      }
+    ],
+    "17.5 Write CDK snapshot tests": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019465
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827814853
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827991387
+      }
+    ],
+    "18. Final checkpoint — Ensure all tests pass": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788823019528
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827996387
+      },
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788828195890
+      }
+    ],
+    "8. Implement `SocialAuthorizeUseCase`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825703253
+      }
+    ],
+    "11. Implement new DTOs": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825704153
+      }
+    ],
+    "10. Implement `TenantAssociationUseCase`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788825913533
+      }
+    ],
+    "9. Implement `SocialCallbackUseCase`": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788826405711
+      }
+    ],
+    "14. Implement `AuthGuardMiddleware` pending-tenant access control": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827022014
+      }
+    ],
+    "15. Create Lambda entry point and composition root": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827023462
+      }
+    ],
+    "13. Implement `OAuthController` and HTTP layer": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827024102
+      }
+    ],
+    "17. Update CDK stack (`infra/stacks/app_stack.py`)": [
+      {
+        "executionId": "8492d51a-fe77-4004-a90e-94b5c94207b8",
+        "chatSessionId": "sess_b25a1968-6c5d-416b-989a-62900c0bfc7f",
+        "timestamp": 1788827991478
+      }
+    ]
+  }
+}

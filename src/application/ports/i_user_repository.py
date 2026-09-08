@@ -109,3 +109,76 @@ class IUserRepository(ABC):
         Raises:
             Domain or infrastructure errors if the transaction fails.
         """
+
+    @abstractmethod
+    def find_by_cognito_sub(self, cognito_sub: str) -> User | None:
+        """Find a user by their Cognito subject identifier.
+
+        Used by the social-login callback flow to detect a returning
+        federated user before falling back to email-based lookup.
+
+        Args:
+            cognito_sub: The Cognito ``sub`` claim of the user.
+
+        Returns:
+            The User entity if found, None otherwise.
+        """
+
+    @abstractmethod
+    def register_social_user(
+        self,
+        user: User,
+        membership: TenantMembership | None,
+        member: Member | None,
+        role: UserRole | None,
+    ) -> None:
+        """Atomically provision a social-login user (idempotently).
+
+        Writes the User record with an ``attribute_not_exists(PK)`` condition so
+        that a repeated OAuth callback does not create duplicate records — a
+        failing condition check is treated as success. The membership, member,
+        and role records are only written when the tenant is known at
+        provisioning time; when the tenant cannot be resolved they are omitted
+        and the user is left in a pending-tenant state.
+
+        Args:
+            user: The new social User entity (registration_type="social").
+            membership: The TenantMembership linking user to tenant, or None
+                when the tenant is not yet known.
+            member: The Member entity within the tenant, or None when the
+                tenant is not yet known.
+            role: The default role assignment, or None when the tenant is not
+                yet known.
+
+        Raises:
+            Domain or infrastructure errors if the transaction fails for a
+            reason other than the idempotency condition check.
+        """
+
+    @abstractmethod
+    def associate_tenant(
+        self,
+        user_id: str,
+        membership: TenantMembership,
+        member: Member,
+        role: UserRole,
+        new_status: str,
+        new_default_tenant_id: str,
+    ) -> None:
+        """Atomically associate a pending-tenant user with a tenant.
+
+        Writes the TenantMembership, Member, and UserRole records and updates
+        the existing User's ``status`` and ``default_tenant_id`` in a single
+        transaction — if any part fails, no changes are applied.
+
+        Args:
+            user_id: UUID string of the user being associated.
+            membership: The TenantMembership linking user to tenant.
+            member: The Member entity within the tenant.
+            role: The role assignment (typically "viewer").
+            new_status: The status to set on the User (e.g. "active").
+            new_default_tenant_id: The tenant id to set as the User's default.
+
+        Raises:
+            Domain or infrastructure errors if the transaction fails.
+        """

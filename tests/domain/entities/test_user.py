@@ -61,6 +61,45 @@ class TestUserCreate:
         )
         assert user.status == "pending_confirmation"
 
+    def test_create_with_pending_tenant_status(self) -> None:
+        """Can create a user with pending_tenant status (social login, no tenant yet)."""
+        user = User.create(
+            email="social@example.com",
+            cognito_sub="sub-789",
+            full_name="Social User",
+            status="pending_tenant",
+        )
+        assert user.status == "pending_tenant"
+
+    def test_create_with_social_registration_type(self) -> None:
+        """Can create a user with registration_type="social" (federated login)."""
+        user = User.create(
+            email="social@example.com",
+            cognito_sub="sub-789",
+            full_name="Social User",
+            registration_type="social",
+        )
+        assert user.registration_type == "social"
+
+    def test_create_defaults_registration_type_to_native(self) -> None:
+        """When not supplied, registration_type defaults to "native"."""
+        user = User.create(
+            email="test@example.com",
+            cognito_sub="sub-123",
+            full_name="John Doe",
+        )
+        assert user.registration_type == "native"
+
+    def test_create_with_invalid_registration_type_raises_validation_error(self) -> None:
+        """Invalid registration_type raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid registration type"):
+            User.create(
+                email="test@example.com",
+                cognito_sub="sub-123",
+                full_name="John Doe",
+                registration_type="carrier_pigeon",
+            )
+
     def test_create_with_invalid_email_raises_validation_error(self) -> None:
         """Invalid email raises ValidationError."""
         with pytest.raises(ValidationError, match="Invalid email format"):

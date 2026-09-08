@@ -271,8 +271,240 @@ class DynamoDBUserRepository(IUserRepository):
         client = self._table.meta.client
         client.transact_write_items(TransactItems=transact_items)
 
+    # ──── Social Login (implemented in task 6) ────────────────────────────────
+
+    def find_by_cognito_sub(self, cognito_sub: str) -> User | None:
+        """Find a user by their Cognito subject identifier.
+
+        Since cognito_sub is not part of the primary key (PK=USER#{email}),
+        this performs a Scan with a filter on cognito_sub. This mirrors the
+        find_by_id pattern and is acceptable for low-frequency operations
+        (e.g., the social-login callback flow) but not suitable for
+        high-throughput access patterns.
+
+        Note: For production at scale, consider adding a GSI with
+        PK=USER#{cognito_sub} to enable efficient lookups by cognito_sub.
+
+        Args:
+            cognito_sub: The Cognito ``sub`` claim of the user.
+
+        Returns:
+            The User entity if found, None otherwise.
+        """
+        response = self._table.scan(
+            FilterExpression="cognito_sub = :sub AND SK = :sk",
+            ExpressionAttributeValues={
+                ":sub": cognito_sub,
+                ":sk": "PROFILE",
+            },
+            Limit=1,
+        )
+
+        items = response.get("Items", [])
+        if not items:
+            return None
+
+        return user_from_item(items[0])
+
+    def register_social_user(
+        self,
+        user: User,
+        membership: TenantMembership | None,
+        member: Member | None,
+        role: UserRole | None,
+    ) -> None:
+        """Atomically provision a social-login user (idempotently).
+
+        Builds a single ``TransactWriteItems`` request containing the User
+        record and, when the tenant is known, the TenantMembership, Member,
+        and UserRole records. The User Put carries an
+        ``attribute_not_exists(PK)`` condition so that a concurrent or repeated
+        invocation for the same user does not create duplicate records.
+
+        Idempotency: if the User already exists, DynamoDB cancels the
+        transaction with a conditional-check failure on the User item. That
+        outcome is treated as success (the user is already provisioned) and is
+        swallowed silently, so re-invocation of the callback flow is safe.
+
+        Args:
+            user: The new Social_User entity (registration_type="social").
+            membership: Optional TenantMembership, included only when the
+                tenant is known (auto-assigned).
+            member: Optional Member entity, included only when the tenant is
+                known.
+            role: Optional default UserRole, included only when the tenant is
+                known.
+
+        Raises:
+            ClientError: If the DynamoDB transaction fails for any reason other
+                than a conditional-check failure on the User item.
+        """
+        transact_items: list[dict[str, Any]] = [
+            {
+                "Put": {
+                    "TableName": self._table_name,
+                    "Item": _strip_none_values(user_to_item(user)),
+                    "ConditionExpression": "attribute_not_exists(PK)",
+                }
+            }
+        ]
+
+        if membership is not None:
+            transact_items.append(
+                {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _strip_none_values(
+                            tenant_membership_to_item(membership)
+                        ),
+                    }
+                }
+            )
+
+        if member is not None:
+            transact_items.append(
+                {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _strip_none_values(member_to_item(member)),
+                    }
+                }
+            )
+
+        if role is not None:
+            transact_items.append(
+                {
+                    "Put": {
+                        "TableName": self._table_name,
+                        "Item": _strip_none_values(user_role_to_item(role)),
+                    }
+                }
+            )
+
+        client = self._table.meta.client
+        try:
+            client.transact_write_items(TransactItems=transact_items)
+        except ClientError as error:
+            if _is_user_conditional_check_failure(error):
+                # User already exists — idempotent re-invocation. Treat as
+                # success and return without raising.
+                return
+            raise
+
+    def associate_tenant(
+        self,
+        user_id: str,
+        membership: TenantMembership,
+        member: Member,
+        role: UserRole,
+        new_status: str,
+        new_default_tenant_id: str,
+    ) -> None:
+        """Atomically associate a pending-tenant user with a tenant.
+
+        Performs a single ``TransactWriteItems`` request that writes the new
+        TenantMembership, Member, and UserRole records and updates the existing
+        User record's ``default_tenant_id`` and ``status`` attributes. Because
+        the transaction is atomic, no partial write is ever observable — either
+        all four mutations succeed or none are applied.
+
+        Resolving the User key: the User's primary key is email-based
+        (PK=``USER#{email}``, SK=``PROFILE``), but this method only receives the
+        ``user_id``. The email is therefore obtained by first loading the User
+        via :meth:`find_by_id` (which scans by ``user_id``) and reading its
+        email off the reconstituted entity. That email is used to build the
+        ``Update`` action's ``Key``.
+
+        Args:
+            user_id: UUID string of the user to associate.
+            membership: The TenantMembership linking user to tenant.
+            member: The Member entity within the tenant.
+            role: The default role assignment (typically "viewer").
+            new_status: The new User status (typically "active").
+            new_default_tenant_id: The tenant to record as the user's default.
+
+        Raises:
+            ValueError: If no User exists for the given user_id.
+            ClientError: If the DynamoDB transaction fails.
+        """
+        user = self.find_by_id(user_id)
+        if user is None:
+            raise ValueError(f"User not found for user_id: {user_id}")
+
+        membership_item = tenant_membership_to_item(membership)
+        member_item = member_to_item(member)
+        role_item = user_role_to_item(role)
+
+        transact_items: list[dict[str, Any]] = [
+            {
+                "Put": {
+                    "TableName": self._table_name,
+                    "Item": _strip_none_values(membership_item),
+                }
+            },
+            {
+                "Put": {
+                    "TableName": self._table_name,
+                    "Item": _strip_none_values(member_item),
+                }
+            },
+            {
+                "Put": {
+                    "TableName": self._table_name,
+                    "Item": _strip_none_values(role_item),
+                }
+            },
+            {
+                "Update": {
+                    "TableName": self._table_name,
+                    "Key": {
+                        "PK": f"USER#{user.email.value}",
+                        "SK": "PROFILE",
+                    },
+                    "UpdateExpression": (
+                        "SET default_tenant_id = :tid, #s = :status"
+                    ),
+                    "ExpressionAttributeNames": {"#s": "status"},
+                    "ExpressionAttributeValues": {
+                        ":tid": new_default_tenant_id,
+                        ":status": new_status,
+                    },
+                }
+            },
+        ]
+
+        client = self._table.meta.client
+        client.transact_write_items(TransactItems=transact_items)
+
 
 # ──── Internal Helpers ────────────────────────────────────────────────────────
+
+
+def _is_user_conditional_check_failure(error: ClientError) -> bool:
+    """Return True when a transaction was cancelled by the User's condition.
+
+    ``TransactWriteItems`` reports a failing ``attribute_not_exists(PK)``
+    condition as a ``TransactionCanceledException`` whose ``CancellationReasons``
+    list the per-item outcomes in request order. The User Put is always the
+    first item in ``register_social_user``, so a ``ConditionalCheckFailed``
+    reason at index 0 means the user already exists.
+
+    Args:
+        error: The ClientError raised by transact_write_items.
+
+    Returns:
+        True if the User item's conditional check failed, False otherwise.
+    """
+    error_info = error.response.get("Error", {})
+    if error_info.get("Code") != "TransactionCanceledException":
+        return False
+
+    reasons = error.response.get("CancellationReasons")
+    if not reasons:
+        return False
+
+    first_reason = reasons[0]
+    return bool(first_reason) and first_reason.get("Code") == "ConditionalCheckFailed"
 
 
 def _strip_none_values(item: dict[str, Any]) -> dict[str, Any]:

@@ -200,5 +200,127 @@ def test_sns_alarm_topic(dev_template: Template) -> None:
 
 
 def test_alarms_exist_and_notify_topic(dev_template: Template) -> None:
-    # 5 lambdas x 2 (errors+throttles) + api 5xx + api latency + ddb user + ddb system = 14
-    dev_template.resource_count_is("AWS::CloudWatch::Alarm", 14)
+    # 6 lambdas x 2 (errors+throttles) + api 5xx + api latency + ddb user + ddb system = 16
+    # (6 lambdas = 4 API handlers + post-confirmation trigger + OAuth handler.)
+    dev_template.resource_count_is("AWS::CloudWatch::Alarm", 16)
+
+
+# ── Social login (CDK snapshot tests) ──────────────────────────────────────
+#
+# These snapshot tests assert the synthesized template wires the social-login
+# infrastructure (tasks 17.1–17.4): the Google/Facebook Cognito Identity
+# Providers, the OAuthHandlerFn Lambda, the /auth/social/* API routes, and the
+# WAF protection covering them. They also enforce Requirement 8.7 — no secret
+# material may appear in the template; social credentials must be rendered
+# exclusively as Secrets Manager dynamic references.
+
+
+def test_social_identity_provider_google(dev_template: Template) -> None:
+    # Google IDP synthesizes to AWS::Cognito::UserPoolIdentityProvider with
+    # ProviderType="Google" (Requirement 1.1).
+    dev_template.has_resource_properties(
+        "AWS::Cognito::UserPoolIdentityProvider",
+        {"ProviderType": "Google"},
+    )
+
+
+def test_social_identity_provider_facebook(dev_template: Template) -> None:
+    # Facebook IDP synthesizes to AWS::Cognito::UserPoolIdentityProvider with
+    # ProviderType="Facebook" (Requirement 1.2).
+    dev_template.has_resource_properties(
+        "AWS::Cognito::UserPoolIdentityProvider",
+        {"ProviderType": "Facebook"},
+    )
+
+
+def test_exactly_two_identity_providers(dev_template: Template) -> None:
+    # Precisely one Google + one Facebook provider — no more, no fewer.
+    dev_template.resource_count_is("AWS::Cognito::UserPoolIdentityProvider", 2)
+
+
+def test_oauth_handler_lambda_present(dev_template: Template) -> None:
+    # OAuthHandlerFn serves the /auth/social/* routes (task 17.3).
+    dev_template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Handler": "interfaces.http.handlers.oauth_handler.handler",
+            "Runtime": "python3.12",
+        },
+    )
+
+
+def test_oauth_handler_has_social_env(dev_template: Template) -> None:
+    # The OAuth Lambda carries the social-specific environment surface: the
+    # Hosted UI domain, the OAuth callback URL, and the HMAC state secret.
+    dev_template.has_resource_properties(
+        "AWS::Lambda::Function",
+        {
+            "Handler": "interfaces.http.handlers.oauth_handler.handler",
+            "Environment": {
+                "Variables": Match.object_like(
+                    {
+                        "COGNITO_HOSTED_UI_DOMAIN": Match.any_value(),
+                        "COGNITO_CALLBACK_URL": Match.any_value(),
+                        "SOCIAL_STATE_SECRET": Match.any_value(),
+                    }
+                )
+            },
+        },
+    )
+
+
+def test_social_api_routes_present(dev_template: Template) -> None:
+    # The /auth/social/{proxy+} routes are registered on the API. The greedy
+    # proxy resource lets the single OAuth Lambda route every social sub-path
+    # (authorize, callback, select-tenant) internally.
+    for path_part in ("social", "{proxy+}"):
+        dev_template.has_resource_properties(
+            "AWS::ApiGateway::Resource", {"PathPart": path_part}
+        )
+
+
+def test_waf_association_covers_social_routes(dev_template: Template) -> None:
+    # WAF is associated at the API *stage* level (a single WebACLAssociation),
+    # so the /auth/social/* routes are protected by the same WAF as every other
+    # endpoint via this one association (Requirement 8.3). We assert exactly one
+    # association exists and that the social path parts are part of the API.
+    dev_template.resource_count_is("AWS::WAFv2::WebACLAssociation", 1)
+    dev_template.has_resource_properties(
+        "AWS::ApiGateway::Resource", {"PathPart": "social"}
+    )
+    dev_template.has_resource_properties(
+        "AWS::ApiGateway::Resource", {"PathPart": "{proxy+}"}
+    )
+
+
+def test_no_plaintext_social_credentials_in_template(dev_template: Template) -> None:
+    # Requirement 8.7: no secret material may appear in the synthesized
+    # template. The Google/Facebook client_secret and the SOCIAL_STATE_SECRET
+    # must be rendered ONLY as Secrets Manager dynamic references
+    # ("{{resolve:secretsmanager:...}}"), resolved by AWS at deploy time.
+    template_json = str(dev_template.to_json())
+
+    # The dynamic-reference marker must be present for the social secrets.
+    assert "{{resolve:secretsmanager:" in template_json
+    # Each social secret is referenced by its logical name + JSON key, never by
+    # a plaintext value. (Names only — no secret material is hardcoded here.)
+    assert "social/state:SecretString:state_secret" in template_json
+    assert "social/google:SecretString:client_secret" in template_json
+    assert "social/facebook:SecretString:client_secret" in template_json
+
+
+def test_oauth_state_secret_is_dynamic_reference(dev_template: Template) -> None:
+    # The OAuthHandlerFn SOCIAL_STATE_SECRET env value must resolve from Secrets
+    # Manager at runtime, not be a plaintext literal in the template. The value
+    # is rendered as an Fn::Join around a {{resolve:secretsmanager:...}} token,
+    # so we locate the OAuth function and assert its env value carries the
+    # dynamic-reference marker rather than any inline secret string.
+    functions = dev_template.find_resources("AWS::Lambda::Function")
+    oauth_env_values = [
+        props["Properties"]["Environment"]["Variables"]["SOCIAL_STATE_SECRET"]
+        for props in functions.values()
+        if props["Properties"].get("Handler")
+        == "interfaces.http.handlers.oauth_handler.handler"
+    ]
+    assert len(oauth_env_values) == 1
+    assert "resolve:secretsmanager" in str(oauth_env_values[0])

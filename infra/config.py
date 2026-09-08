@@ -36,6 +36,15 @@ class EnvConfig:
         api_throttle_burst: API Gateway burst capacity.
         waf_rate_limit_per_5min: WAF rate-based rule limit (requests per source
             IP over a 5-minute window) before the IP is temporarily blocked.
+        social_callback_urls: OAuth `callback_urls` registered on the Cognito
+            App Client — the frontend/API destinations Cognito is allowed to
+            redirect to after a social login. These are the URLs the Hosted UI
+            redirects to with the authorization `code` (the app then forwards
+            it to the `/auth/social/callback` endpoint). Config-driven per
+            environment rather than hardcoded so dev/prod can differ.
+        social_logout_urls: OAuth `logout_urls` registered on the Cognito App
+            Client — the frontend destinations Cognito is allowed to redirect
+            to after a Hosted UI sign-out. Config-driven per environment.
     """
 
     name: str
@@ -49,6 +58,8 @@ class EnvConfig:
     api_throttle_rate: int
     api_throttle_burst: int
     waf_rate_limit_per_5min: int
+    social_callback_urls: tuple[str, ...]
+    social_logout_urls: tuple[str, ...]
 
 
 _CONFIGS: dict[str, EnvConfig] = {
@@ -64,6 +75,12 @@ _CONFIGS: dict[str, EnvConfig] = {
         api_throttle_rate=20,
         api_throttle_burst=40,
         waf_rate_limit_per_5min=2000,
+        social_callback_urls=(
+            "https://dev.sport-app.com/auth/social/callback",
+        ),
+        social_logout_urls=(
+            "https://dev.sport-app.com/logout",
+        ),
     ),
     "prod": EnvConfig(
         name="prod",
@@ -77,6 +94,12 @@ _CONFIGS: dict[str, EnvConfig] = {
         api_throttle_rate=100,
         api_throttle_burst=200,
         waf_rate_limit_per_5min=10000,
+        social_callback_urls=(
+            "https://sport-app.com/auth/social/callback",
+        ),
+        social_logout_urls=(
+            "https://sport-app.com/logout",
+        ),
     ),
 }
 

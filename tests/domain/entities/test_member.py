@@ -256,6 +256,34 @@ class TestMemberCreate:
                 invited_by=None,
             )
 
+    def test_create_with_social_registration_type(self) -> None:
+        """Social registration type produces a Member exposing registration_type == 'social'."""
+        member = Member.create(
+            tenant_id=VALID_TENANT_ID,
+            user_id=VALID_USER_ID,
+            account_type="socio",
+            account_type_id=VALID_ACCOUNT_TYPE_ID,
+            full_name="Social User",
+            email="social@example.com",
+            registration_type="social",
+        )
+        assert member.registration_type == "social"
+        assert member.status == "active"
+        assert member.invited_by is None
+
+    def test_create_with_unknown_registration_type_raises(self) -> None:
+        """Unknown registration_type raises ValidationError."""
+        with pytest.raises(ValidationError, match="Invalid registration type"):
+            Member.create(
+                tenant_id=VALID_TENANT_ID,
+                user_id=VALID_USER_ID,
+                account_type="socio",
+                account_type_id=VALID_ACCOUNT_TYPE_ID,
+                full_name="Test User",
+                email="test@example.com",
+                registration_type="totally-unknown",
+            )
+
 
 class TestMemberReconstitute:
     """Tests for Member.reconstitute() method."""

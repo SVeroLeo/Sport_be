@@ -116,6 +116,14 @@ class ApiWaf(Construct):
         # Associate the Web ACL with the API's deployed stage. The regional
         # API Gateway stage ARN format is:
         #   arn:aws:apigateway:{region}::/restapis/{apiId}/stages/{stage}
+        #
+        # WAFv2 REGIONAL association granularity for API Gateway is the STAGE,
+        # not individual resources/methods. Associating at the stage therefore
+        # protects EVERY route on that stage with a SINGLE association. This
+        # includes the /auth/social/* routes (OAuth authorize/callback/
+        # select-tenant), which inherit the exact same managed rules and per-IP
+        # rate limiting as the existing endpoints (Req 8.3). No separate/
+        # per-resource association is created (or possible) for the social path.
         stage_arn = (
             f"arn:aws:apigateway:{api.env.region}::/restapis/"
             f"{api.rest_api_id}/stages/{api.deployment_stage.stage_name}"

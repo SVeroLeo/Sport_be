@@ -13,7 +13,7 @@ from domain.value_objects.member_id import MemberId
 from domain.value_objects.tenant_id import TenantId
 
 _VALID_STATUSES = frozenset({"active", "inactive", "pending_confirmation"})
-_VALID_REGISTRATION_TYPES = frozenset({"self", "invited"})
+_VALID_REGISTRATION_TYPES = frozenset({"self", "invited", "social"})
 
 
 class Member:

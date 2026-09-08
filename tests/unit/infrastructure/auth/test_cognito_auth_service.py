@@ -8,6 +8,7 @@ from moto import mock_aws
 
 from domain.errors.conflict_error import ConflictError
 from domain.errors.invalid_credentials_error import InvalidCredentialsError
+from domain.errors.validation_error import ValidationError
 from infrastructure.auth.cognito_auth_service import CognitoAuthService
 
 
@@ -232,3 +233,269 @@ async def test_admin_enable_user_restores_authentication(cognito_setup, service)
         Username=TEST_EMAIL,
     )
     assert user_response["Enabled"] is True
+
+
+# ──── Tests: Social Login (exchange_code_for_tokens) ──────────────────────────
+
+
+TEST_USER_POOL_ID = "us-east-1_test123"
+TEST_CLIENT_ID = "test-client-id"
+TEST_HOSTED_UI_DOMAIN = "sport-dev.auth.us-east-1.amazoncognito.com"
+TEST_REDIRECT_URI = "https://api.example.com/auth/social/callback"
+TEST_CODE = "auth-code-123"
+
+
+@pytest.fixture
+def mock_client():
+    """A MagicMock standing in for the boto3 cognito-idp client."""
+    from unittest.mock import MagicMock
+
+    return MagicMock()
+
+
+@pytest.fixture
+def social_service(mock_client) -> CognitoAuthService:
+    """CognitoAuthService wired to a MagicMock Cognito client for social tests."""
+    return CognitoAuthService(
+        user_pool_id=TEST_USER_POOL_ID,
+        client_id=TEST_CLIENT_ID,
+        region=REGION,
+        client=mock_client,
+    )
+
+
+class _FakeHTTPResponse:
+    """Minimal context-manager stand-in for urllib's HTTP response."""
+
+    def __init__(self, body: bytes, status: int = 200) -> None:
+        self._body = body
+        self.status = status
+
+    def __enter__(self) -> "_FakeHTTPResponse":
+        return self
+
+    def __exit__(self, *_exc) -> bool:
+        return False
+
+    def read(self) -> bytes:
+        return self._body
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_for_tokens_returns_token_pair(social_service, monkeypatch):
+    """Should parse a successful token endpoint response into a TokenPair."""
+    import json as _json
+
+    body = _json.dumps(
+        {
+            "access_token": "access-abc",
+            "id_token": "id-abc",
+            "refresh_token": "refresh-abc",
+            "expires_in": 3600,
+        }
+    ).encode("utf-8")
+
+    captured = {}
+
+    def fake_urlopen(request):
+        captured["url"] = request.full_url
+        captured["method"] = request.method
+        captured["data"] = request.data
+        captured["headers"] = request.headers
+        return _FakeHTTPResponse(body)
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+
+    result = await social_service.exchange_code_for_tokens(
+        TEST_CODE, TEST_REDIRECT_URI, TEST_HOSTED_UI_DOMAIN
+    )
+
+    assert result.access_token == "access-abc"
+    assert result.id_token == "id-abc"
+    assert result.refresh_token == "refresh-abc"
+    assert result.expires_in == 3600
+
+    # Verify the request targeted the Hosted UI token endpoint with the
+    # authorization_code grant and form-urlencoded body.
+    assert captured["url"] == f"https://{TEST_HOSTED_UI_DOMAIN}/oauth2/token"
+    assert captured["method"] == "POST"
+    decoded = captured["data"].decode("utf-8")
+    assert "grant_type=authorization_code" in decoded
+    assert f"code={TEST_CODE}" in decoded
+    assert f"client_id={TEST_CLIENT_ID}" in decoded
+    assert "redirect_uri=" in decoded
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_for_tokens_defaults_missing_refresh_token(social_service, monkeypatch):
+    """Should default refresh_token to empty string when absent."""
+    import json as _json
+
+    body = _json.dumps(
+        {"access_token": "a", "id_token": "i", "expires_in": 3600}
+    ).encode("utf-8")
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda request: _FakeHTTPResponse(body)
+    )
+
+    result = await social_service.exchange_code_for_tokens(
+        TEST_CODE, TEST_REDIRECT_URI, TEST_HOSTED_UI_DOMAIN
+    )
+
+    assert result.refresh_token == ""
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_for_tokens_raises_on_non_2xx_status(social_service, monkeypatch):
+    """Should raise token_exchange_failed when urlopen returns a non-2xx status.
+
+    Covers the explicit status-code guard in the adapter (a response that
+    opens successfully but carries a non-2xx status, distinct from an
+    ``HTTPError`` being raised).
+    """
+    import json as _json
+
+    body = _json.dumps(
+        {
+            "access_token": "a",
+            "id_token": "i",
+            "refresh_token": "r",
+            "expires_in": 3600,
+        }
+    ).encode("utf-8")
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda request: _FakeHTTPResponse(body, status=500),
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.exchange_code_for_tokens(
+            TEST_CODE, TEST_REDIRECT_URI, TEST_HOSTED_UI_DOMAIN
+        )
+    assert exc_info.value.message == "token_exchange_failed"
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_for_tokens_raises_on_http_error(social_service, monkeypatch):
+    """Should raise token_exchange_failed on a non-2xx HTTP error."""
+    import urllib.error
+
+    def raise_http_error(request):
+        raise urllib.error.HTTPError(
+            url=request.full_url, code=400, msg="Bad Request", hdrs=None, fp=None
+        )
+
+    monkeypatch.setattr("urllib.request.urlopen", raise_http_error)
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.exchange_code_for_tokens(
+            TEST_CODE, TEST_REDIRECT_URI, TEST_HOSTED_UI_DOMAIN
+        )
+    assert exc_info.value.message == "token_exchange_failed"
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_for_tokens_raises_on_network_error(social_service, monkeypatch):
+    """Should raise token_exchange_failed on a network/URL error."""
+    import urllib.error
+
+    def raise_url_error(request):
+        raise urllib.error.URLError("connection refused")
+
+    monkeypatch.setattr("urllib.request.urlopen", raise_url_error)
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.exchange_code_for_tokens(
+            TEST_CODE, TEST_REDIRECT_URI, TEST_HOSTED_UI_DOMAIN
+        )
+    assert exc_info.value.message == "token_exchange_failed"
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_for_tokens_raises_on_malformed_json(social_service, monkeypatch):
+    """Should raise token_exchange_failed when the response is not valid JSON."""
+    monkeypatch.setattr(
+        "urllib.request.urlopen",
+        lambda request: _FakeHTTPResponse(b"not-json"),
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.exchange_code_for_tokens(
+            TEST_CODE, TEST_REDIRECT_URI, TEST_HOSTED_UI_DOMAIN
+        )
+    assert exc_info.value.message == "token_exchange_failed"
+
+
+@pytest.mark.asyncio
+async def test_exchange_code_for_tokens_raises_on_missing_fields(social_service, monkeypatch):
+    """Should raise token_exchange_failed when required token fields are absent."""
+    import json as _json
+
+    body = _json.dumps({"access_token": "a"}).encode("utf-8")  # missing id_token, expires_in
+    monkeypatch.setattr(
+        "urllib.request.urlopen", lambda request: _FakeHTTPResponse(body)
+    )
+
+    with pytest.raises(ValidationError) as exc_info:
+        await social_service.exchange_code_for_tokens(
+            TEST_CODE, TEST_REDIRECT_URI, TEST_HOSTED_UI_DOMAIN
+        )
+    assert exc_info.value.message == "token_exchange_failed"
+
+
+# ──── Tests: Social Login (admin_link_provider_for_user) ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_admin_link_provider_for_user_calls_cognito(social_service, mock_client):
+    """Should call Cognito AdminLinkProviderForUser with destination and source users."""
+    await social_service.admin_link_provider_for_user(
+        destination_cognito_sub="cognito-sub-1",
+        provider_name="Google",
+        provider_user_id="google-sub-9",
+    )
+
+    mock_client.admin_link_provider_for_user.assert_called_once()
+    kwargs = mock_client.admin_link_provider_for_user.call_args.kwargs
+    assert kwargs["UserPoolId"] == TEST_USER_POOL_ID
+    assert kwargs["DestinationUser"]["ProviderName"] == "Cognito"
+    assert kwargs["DestinationUser"]["ProviderAttributeValue"] == "cognito-sub-1"
+    assert kwargs["SourceUser"]["ProviderName"] == "Google"
+    assert kwargs["SourceUser"]["ProviderAttributeValue"] == "google-sub-9"
+
+
+@pytest.mark.asyncio
+async def test_admin_link_provider_for_user_raises_conflict_on_failure(social_service, mock_client):
+    """Should raise ConflictError with provider_link_failed on a Cognito error."""
+    from botocore.exceptions import ClientError
+
+    mock_client.admin_link_provider_for_user.side_effect = ClientError(
+        {"Error": {"Code": "InvalidParameterException", "Message": "bad"}},
+        "AdminLinkProviderForUser",
+    )
+
+    with pytest.raises(ConflictError) as exc_info:
+        await social_service.admin_link_provider_for_user(
+            destination_cognito_sub="cognito-sub-1",
+            provider_name="Facebook",
+            provider_user_id="fb-id-3",
+        )
+    assert exc_info.value.message == "provider_link_failed"
+
+
+# ──── Tests: Social Login (admin_update_user_attributes) ──────────────────────
+
+
+@pytest.mark.asyncio
+async def test_admin_update_user_attributes_calls_cognito(social_service, mock_client):
+    """Should map the attributes dict into Cognito's Name/Value attribute list."""
+    await social_service.admin_update_user_attributes(
+        cognito_sub="cognito-sub-1",
+        attributes={"custom:provider": "google"},
+    )
+
+    mock_client.admin_update_user_attributes.assert_called_once()
+    kwargs = mock_client.admin_update_user_attributes.call_args.kwargs
+    assert kwargs["UserPoolId"] == TEST_USER_POOL_ID
+    assert kwargs["Username"] == "cognito-sub-1"
+    assert {"Name": "custom:provider", "Value": "google"} in kwargs["UserAttributes"]

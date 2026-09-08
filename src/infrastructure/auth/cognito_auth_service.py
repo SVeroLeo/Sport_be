@@ -8,7 +8,11 @@ never stored or logged by this service.
 
 from __future__ import annotations
 
+import json
 import logging
+import urllib.error
+import urllib.parse
+import urllib.request
 from typing import TYPE_CHECKING, Any
 
 import boto3
@@ -18,6 +22,7 @@ from application.ports.i_cognito_service import ICognitoService
 from domain.entities.token_pair import TokenPair
 from domain.errors.conflict_error import ConflictError
 from domain.errors.invalid_credentials_error import InvalidCredentialsError
+from domain.errors.validation_error import ValidationError
 
 if TYPE_CHECKING:
     from mypy_boto3_cognito_idp import CognitoIdentityProviderClient
@@ -300,4 +305,150 @@ class CognitoAuthService(ICognitoService):
         self._client.admin_enable_user(
             UserPoolId=self._user_pool_id,
             Username=cognito_sub,
+        )
+
+    # ──── Social Login ────────────────────────────────────────────────────────
+
+    async def exchange_code_for_tokens(
+        self,
+        code: str,
+        redirect_uri: str,
+        hosted_ui_domain: str,
+    ) -> TokenPair:
+        """Exchange an OAuth authorization code for a token set.
+
+        Calls the Cognito Hosted UI ``POST /oauth2/token`` endpoint with the
+        ``authorization_code`` grant. The request body is form-urlencoded per
+        the OAuth 2.0 spec. The response JSON is parsed into a TokenPair.
+
+        The standard library ``urllib`` is used for the HTTP call so no extra
+        runtime dependency (requests/httpx) is required in the Lambda bundle.
+
+        Args:
+            code: The authorization code returned by the Hosted UI.
+            redirect_uri: The redirect URI registered with the App Client;
+                must match the one used to obtain the code.
+            hosted_ui_domain: The Cognito Hosted UI domain (e.g.
+                ``sport-dev.auth.us-east-1.amazoncognito.com``) used to build
+                the token endpoint URL.
+
+        Returns:
+            A TokenPair containing access_token, id_token,
+            refresh_token, and expires_in.
+
+        Raises:
+            ValidationError: With code ``"token_exchange_failed"`` on any
+                failure — non-2xx HTTP response, network error, malformed
+                JSON, or a response missing required token fields.
+        """
+        token_endpoint = f"https://{hosted_ui_domain}/oauth2/token"
+        form_body = urllib.parse.urlencode(
+            {
+                "grant_type": "authorization_code",
+                "code": code,
+                "client_id": self._client_id,
+                "redirect_uri": redirect_uri,
+            }
+        ).encode("utf-8")
+
+        request = urllib.request.Request(  # noqa: S310 - https URL built from trusted domain
+            token_endpoint,
+            data=form_body,
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        try:
+            with urllib.request.urlopen(request) as response:  # noqa: S310
+                status_code = getattr(response, "status", 200)
+                if status_code < 200 or status_code >= 300:
+                    logger.error("Token exchange returned non-2xx status: %s", status_code)
+                    raise ValidationError("token_exchange_failed")
+                payload = json.loads(response.read().decode("utf-8"))
+        except ValidationError:
+            raise
+        except urllib.error.HTTPError as e:
+            logger.error("Token exchange HTTP error: %s", e.code)
+            raise ValidationError("token_exchange_failed") from e
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            logger.error("Token exchange network error: %s", type(e).__name__)
+            raise ValidationError("token_exchange_failed") from e
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error("Token exchange returned malformed JSON")
+            raise ValidationError("token_exchange_failed") from e
+
+        try:
+            return TokenPair(
+                access_token=payload["access_token"],
+                id_token=payload["id_token"],
+                refresh_token=payload.get("refresh_token", ""),
+                expires_in=payload["expires_in"],
+            )
+        except (KeyError, TypeError) as e:
+            logger.error("Token exchange response missing required fields")
+            raise ValidationError("token_exchange_failed") from e
+
+    async def admin_link_provider_for_user(
+        self,
+        destination_cognito_sub: str,
+        provider_name: str,
+        provider_user_id: str,
+    ) -> None:
+        """Link a social identity provider to an existing Cognito user.
+
+        Calls Cognito ``AdminLinkProviderForUser`` so a federated identity
+        (Google/Facebook) resolves to an existing native Cognito account.
+
+        Args:
+            destination_cognito_sub: The Cognito sub of the existing user the
+                provider identity should be linked to.
+            provider_name: The identity provider name ("Google" or "Facebook").
+            provider_user_id: The provider-specific user identifier (the
+                ``sub`` from Google or ``id`` from Facebook).
+
+        Raises:
+            ConflictError: With code ``"provider_link_failed"`` if the Cognito
+                link operation fails.
+        """
+        try:
+            self._client.admin_link_provider_for_user(
+                UserPoolId=self._user_pool_id,
+                DestinationUser={
+                    "ProviderName": "Cognito",
+                    "ProviderAttributeValue": destination_cognito_sub,
+                },
+                SourceUser={
+                    "ProviderName": provider_name,
+                    "ProviderAttributeName": "Cognito_Subject",
+                    "ProviderAttributeValue": provider_user_id,
+                },
+            )
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            logger.error("Cognito error during admin_link_provider_for_user: %s", error_code)
+            raise ConflictError(
+                message="provider_link_failed",
+                resource="user",
+            ) from e
+
+    async def admin_update_user_attributes(
+        self,
+        cognito_sub: str,
+        attributes: dict[str, str],
+    ) -> None:
+        """Update custom or standard attributes on a Cognito user.
+
+        Calls Cognito ``AdminUpdateUserAttributes`` to set the given
+        attributes (e.g. ``custom:provider``) on the user record.
+
+        Args:
+            cognito_sub: The Cognito sub (user ID) whose attributes are updated.
+            attributes: A mapping of attribute name to value to set.
+        """
+        self._client.admin_update_user_attributes(
+            UserPoolId=self._user_pool_id,
+            Username=cognito_sub,
+            UserAttributes=[
+                {"Name": name, "Value": value} for name, value in attributes.items()
+            ],
         )

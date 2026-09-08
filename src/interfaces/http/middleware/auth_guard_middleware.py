@@ -13,6 +13,8 @@ Implements Requirements:
 - 9.5: Reject (403) when the user has no default tenant assigned.
 - 9.6: Reject (401) on any token verification failure.
 - 10.4: Return 401 "Missing or invalid authorization header" for missing auth.
+- 5.7: While a user has status "pending_tenant", allow only the tenant-selection
+       and logout endpoints; reject (403) "tenant_required" for any other path.
 """
 
 from __future__ import annotations
@@ -30,6 +32,9 @@ if TYPE_CHECKING:
     from infrastructure.auth.jwks_provider import JWKSProvider
 
 logger = logging.getLogger(__name__)
+
+# Endpoints a "pending_tenant" user may reach before selecting a tenant (Req 5.7).
+_PENDING_TENANT_ALLOWED_PATHS = ("/auth/social/select-tenant", "/auth/logout")
 
 
 # ──── AuthContext ─────────────────────────────────────────────────────────────
@@ -145,7 +150,27 @@ class AuthGuardMiddleware:
         # Step 3: Resolve the active tenant from the user's profile (DynamoDB).
         # The token is tenant-agnostic; tenant/roles are authoritative in the store.
         user = self._user_repository.find_by_id(user_id)
-        if user is None or user.status != "active":
+        if user is None:
+            return _error_response(401, "Token expired or invalid")
+
+        # Step 3a: Pending-tenant access control (Requirement 5.7).
+        # A user who completed OAuth but has not yet chosen a tenant may only reach
+        # the tenant-selection and logout endpoints; every other protected path is
+        # rejected with 403 "tenant_required" until the tenant association completes.
+        if user.status == "pending_tenant":
+            path = self._request_path(event)
+            if not any(path.endswith(allowed) for allowed in _PENDING_TENANT_ALLOWED_PATHS):
+                return _error_response(403, "tenant_required")
+            # Allowed path: the user has no tenant/roles yet; downstream use cases
+            # (e.g. select-tenant) authorize by user_id and re-check the status.
+            return AuthContext(
+                user_id=user_id,
+                tenant_id="",
+                roles=[],
+                email=user.email.value,
+            )
+
+        if user.status != "active":
             return _error_response(401, "Token expired or invalid")
 
         tenant_id = user.default_tenant_id
@@ -165,6 +190,28 @@ class AuthGuardMiddleware:
             roles=role_names,
             email=user.email.value,
         )
+
+    @staticmethod
+    def _request_path(event: dict[str, Any]) -> str:
+        """Extract the request path from an API Gateway Lambda event.
+
+        Mirrors the routing convention used by the HTTP handlers, preferring the
+        REST API ``resource`` template and falling back to ``path`` (and the
+        HTTP API v2 ``requestContext.http.path``) so the pending-tenant check
+        works across API Gateway payload formats.
+
+        Args:
+            event: API Gateway Lambda event dict.
+
+        Returns:
+            The request path, or an empty string when none is present.
+        """
+        resource = event.get("resource") or event.get("path")
+        if resource:
+            return str(resource)
+        request_context = event.get("requestContext") or {}
+        http = request_context.get("http") or {}
+        return str(http.get("path") or "")
 
     def _verify_token(self, token: str) -> dict[str, Any] | None:
         """Verify a Cognito access token with RS256 against the issuer's JWKS.

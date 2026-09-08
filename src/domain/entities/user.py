@@ -10,9 +10,21 @@ from domain.errors.validation_error import ValidationError
 from domain.value_objects.email import Email
 from domain.value_objects.full_name import FullName
 
-UserStatus = Literal["active", "inactive", "suspended", "pending_confirmation"]
+UserStatus = Literal[
+    "active", "inactive", "suspended", "pending_confirmation", "pending_tenant"
+]
 
-_VALID_STATUSES: set[str] = {"active", "inactive", "suspended", "pending_confirmation"}
+RegistrationType = Literal["native", "social"]
+
+_VALID_STATUSES: set[str] = {
+    "active",
+    "inactive",
+    "suspended",
+    "pending_confirmation",
+    "pending_tenant",
+}
+
+_VALID_REGISTRATION_TYPES: set[str] = {"native", "social"}
 
 
 class User:
@@ -29,6 +41,7 @@ class User:
         "_full_name",
         "_default_tenant_id",
         "_status",
+        "_registration_type",
         "_created_at",
         "_updated_at",
     )
@@ -39,6 +52,7 @@ class User:
     _full_name: FullName
     _default_tenant_id: str | None
     _status: UserStatus
+    _registration_type: RegistrationType
     _created_at: datetime
     _updated_at: datetime
 
@@ -52,6 +66,7 @@ class User:
         created_at: datetime,
         updated_at: datetime,
         default_tenant_id: str | None = None,
+        registration_type: RegistrationType = "native",
     ) -> None:
         object.__setattr__(self, "_user_id", user_id)
         object.__setattr__(self, "_email", email)
@@ -59,6 +74,7 @@ class User:
         object.__setattr__(self, "_full_name", full_name)
         object.__setattr__(self, "_default_tenant_id", default_tenant_id)
         object.__setattr__(self, "_status", status)
+        object.__setattr__(self, "_registration_type", registration_type)
         object.__setattr__(self, "_created_at", created_at)
         object.__setattr__(self, "_updated_at", updated_at)
 
@@ -100,6 +116,11 @@ class User:
         return self._status
 
     @property
+    def registration_type(self) -> RegistrationType:
+        """How the user registered: "native" (email/password) or "social" (federated)."""
+        return self._registration_type
+
+    @property
     def created_at(self) -> datetime:
         return self._created_at
 
@@ -116,6 +137,7 @@ class User:
         full_name: str,
         status: str = "active",
         default_tenant_id: str | None = None,
+        registration_type: str = "native",
     ) -> User:
         """Create a new User with generated user_id and timestamps.
 
@@ -126,12 +148,14 @@ class User:
             status: Initial status. Defaults to "active".
             default_tenant_id: The user's default (active) tenant, if known at
                 creation time (e.g. the tenant they self-register into). Optional.
+            registration_type: How the user registered — "native" (email/password)
+                or "social" (federated). Defaults to "native".
 
         Returns:
             A validated User entity.
 
         Raises:
-            ValidationError: If email, full_name, or status is invalid.
+            ValidationError: If email, full_name, status, or registration_type is invalid.
         """
         validated_email = Email.create(email)
         validated_full_name = FullName.create(full_name)
@@ -140,6 +164,13 @@ class User:
             raise ValidationError(
                 f"Invalid user status: '{status}'. Must be one of: {', '.join(sorted(_VALID_STATUSES))}",
                 field="status",
+            )
+
+        if registration_type not in _VALID_REGISTRATION_TYPES:
+            raise ValidationError(
+                f"Invalid registration type: '{registration_type}'. "
+                f"Must be one of: {', '.join(sorted(_VALID_REGISTRATION_TYPES))}",
+                field="registration_type",
             )
 
         now = datetime.now(timezone.utc)
@@ -153,6 +184,7 @@ class User:
             created_at=now,
             updated_at=now,
             default_tenant_id=default_tenant_id,
+            registration_type=registration_type,  # type: ignore[arg-type]
         )
 
     @staticmethod
@@ -165,6 +197,7 @@ class User:
         created_at: datetime,
         updated_at: datetime,
         default_tenant_id: str | None = None,
+        registration_type: str = "native",
     ) -> User:
         """Reconstitute a User from persisted data (no validation of format).
 
@@ -179,17 +212,26 @@ class User:
             created_at: Original creation timestamp.
             updated_at: Last update timestamp.
             default_tenant_id: Stored default tenant id, if any. Optional.
+            registration_type: Stored registration type. Defaults to "native"
+                for backward compatibility with records written before social login.
 
         Returns:
             A User entity reconstituted from stored data.
 
         Raises:
-            ValidationError: If status is not a recognized value.
+            ValidationError: If status or registration_type is not a recognized value.
         """
         if status not in _VALID_STATUSES:
             raise ValidationError(
                 f"Invalid user status: '{status}'. Must be one of: {', '.join(sorted(_VALID_STATUSES))}",
                 field="status",
+            )
+
+        if registration_type not in _VALID_REGISTRATION_TYPES:
+            raise ValidationError(
+                f"Invalid registration type: '{registration_type}'. "
+                f"Must be one of: {', '.join(sorted(_VALID_REGISTRATION_TYPES))}",
+                field="registration_type",
             )
 
         return User(
@@ -201,6 +243,7 @@ class User:
             created_at=created_at,
             updated_at=updated_at,
             default_tenant_id=default_tenant_id,
+            registration_type=registration_type,  # type: ignore[arg-type]
         )
 
     # ──── Status Transitions ──────────────────────────────────────────────────
@@ -261,6 +304,7 @@ class User:
             created_at=self._created_at,
             updated_at=datetime.now(timezone.utc),
             default_tenant_id=self._default_tenant_id,
+            registration_type=self._registration_type,
         )
 
     # ──── Domain Queries ──────────────────────────────────────────────────────

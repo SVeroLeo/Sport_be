@@ -138,3 +138,71 @@ class ICognitoService(ABC):
         Args:
             cognito_sub: The Cognito sub (user ID) to enable.
         """
+
+    @abstractmethod
+    async def exchange_code_for_tokens(
+        self,
+        code: str,
+        redirect_uri: str,
+        hosted_ui_domain: str,
+    ) -> TokenPair:
+        """Exchange an OAuth authorization code for a token set.
+
+        Used in the social login callback flow. Calls the Cognito Hosted
+        UI ``POST /oauth2/token`` endpoint with the ``authorization_code``
+        grant to obtain tokens for a federated (Google/Facebook) sign-in.
+
+        Args:
+            code: The authorization code returned by the Hosted UI.
+            redirect_uri: The redirect URI registered with the App Client;
+                must match the one used to obtain the code.
+            hosted_ui_domain: The Cognito Hosted UI domain used to build
+                the token endpoint URL.
+
+        Returns:
+            A TokenPair containing access_token, id_token,
+            refresh_token, and expires_in.
+
+        Raises:
+            InvalidCredentialsError: If the token exchange fails (invalid
+                or expired code, or a misconfigured client).
+        """
+
+    @abstractmethod
+    async def admin_link_provider_for_user(
+        self,
+        destination_cognito_sub: str,
+        provider_name: str,
+        provider_user_id: str,
+    ) -> None:
+        """Link a social identity provider to an existing Cognito user.
+
+        Used when a user who already exists as a native Cognito user signs
+        in through a social provider. Links the federated identity to the
+        existing account so both sign-in methods resolve to one user.
+
+        Args:
+            destination_cognito_sub: The Cognito sub of the existing user
+                the provider identity should be linked to.
+            provider_name: The identity provider name ("Google" or
+                "Facebook").
+            provider_user_id: The provider-specific user identifier (the
+                ``sub`` from Google or ``id`` from Facebook).
+        """
+
+    @abstractmethod
+    async def admin_update_user_attributes(
+        self,
+        cognito_sub: str,
+        attributes: dict[str, str],
+    ) -> None:
+        """Update custom or standard attributes on a Cognito user.
+
+        Used in the social login flow to set attributes such as
+        ``custom:provider`` on the user record.
+
+        Args:
+            cognito_sub: The Cognito sub (user ID) whose attributes are
+                updated.
+            attributes: A mapping of attribute name to value to set.
+        """
