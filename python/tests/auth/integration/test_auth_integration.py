@@ -28,7 +28,7 @@ from api.auth.loginInputDto import LoginInputDTO
 from api.auth.loginUseCase import LoginUseCase
 from api.member.member import Member
 from api.common.tenant.tenantMembership import TenantMembership
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.user.userRole import UserRole
 from api.common.errors.domainError import DomainError
 from api.common.errors.invalidCredentialsError import InvalidCredentialsError

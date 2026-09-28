@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 
 from api.member.member import Member
 from api.common.tenant.tenantMembership import TenantMembership
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.user.userRole import UserRole
 from api.common.valueObjects.email import Email
 

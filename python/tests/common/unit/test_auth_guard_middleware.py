@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt import PyJWK
 from jwt.algorithms import RSAAlgorithm
 
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.user.userRole import UserRole
 from api.common.http.authGuardMiddleware import (
     AuthContext,

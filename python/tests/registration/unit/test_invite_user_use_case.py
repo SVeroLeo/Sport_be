@@ -11,7 +11,7 @@ from api.member.createMemberInputDto import CreateMemberInputDTO
 from api.registration.inviteUserUseCase import InviteUserUseCase
 from api.accountType.accountType import AccountType
 from api.member.member import Member
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.errors.conflictError import ConflictError
 from api.common.errors.domainError import DomainError
 from api.common.errors.notFoundError import NotFoundError

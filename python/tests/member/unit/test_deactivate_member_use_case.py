@@ -11,7 +11,7 @@ from api.member.deactivateMemberUseCase import (
     DeactivateMemberUseCase,
 )
 from api.member.member import Member
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.errors.notFoundError import NotFoundError
 from api.common.errors.validationError import ValidationError
 

@@ -27,7 +27,7 @@ from api.socialLogin.tenantAssociationUseCase import (
 )
 from api.accountType.accountType import AccountType
 from api.common.tenant.tenant import Tenant
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.errors.conflictError import ConflictError
 from api.common.errors.notFoundError import NotFoundError
 from api.common.errors.validationError import ValidationError

@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any
 
 from api.socialLogin.socialLoginDtos import SocialLoginOutputDTO
 from api.socialLogin import stateToken as state_token
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.errors.domainError import DomainError
 from api.common.errors.validationError import ValidationError
 from api.common.valueObjects.email import Email

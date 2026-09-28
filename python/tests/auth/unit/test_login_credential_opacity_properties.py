@@ -25,7 +25,7 @@ from hypothesis import given, settings
 from api.auth.loginInputDto import LoginInputDTO
 from api.auth.loginUseCase import LoginUseCase
 from api.auth.tokenPair import TokenPair
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.errors.invalidCredentialsError import InvalidCredentialsError
 
 # ─── Failure Scenario Enum ────────────────────────────────────────────────────

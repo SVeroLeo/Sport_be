@@ -588,7 +588,7 @@ class TestSelfRegistrationFlow:
         )
 
         # Seed an existing user in DynamoDB
-        from api.common.user.user import User
+        from api.common.user.users import User
 
         existing_user = User.create(
             email="duplicate@example.com",
@@ -760,7 +760,7 @@ class TestAdminInvitationFlow:
         _seed_account_type(table, tenant_id, "profesional")
 
         # Pre-create an existing user in DynamoDB (already a member of another tenant)
-        from api.common.user.user import User
+        from api.common.user.users import User
 
         existing_user = User.create(
             email="existing@example.com",
@@ -860,7 +860,7 @@ class TestAdminInvitationFlow:
         # Create existing user and their membership in this tenant
         from api.member.member import Member
         from api.common.tenant.tenantMembership import TenantMembership
-        from api.common.user.user import User
+        from api.common.user.users import User
         from api.common.user.userRole import UserRole
 
         existing_user = User.create(

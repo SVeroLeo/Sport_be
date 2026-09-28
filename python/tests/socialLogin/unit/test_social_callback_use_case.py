@@ -33,7 +33,7 @@ from api.socialLogin.socialLoginDtos import SocialLoginOutputDTO
 from api.socialLogin import stateToken as state_token
 from api.socialLogin.socialCallbackUseCase import SocialCallbackUseCase
 from api.auth.tokenPair import TokenPair
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.errors.validationError import ValidationError
 
 # ──── Constants ───────────────────────────────────────────────────────────────

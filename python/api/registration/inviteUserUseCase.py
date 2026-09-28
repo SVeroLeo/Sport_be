@@ -8,7 +8,7 @@ from api.member.createMemberInputDto import CreateMemberInputDTO
 from api.member.memberOutputDto import MemberOutputDTO
 from api.member.member import Member
 from api.common.tenant.tenantMembership import TenantMembership
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.user.userRole import UserRole, _VALID_ROLES
 from api.common.errors.conflictError import ConflictError
 from api.common.errors.domainError import DomainError

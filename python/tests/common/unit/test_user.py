@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.errors.validationError import ValidationError
 
 

@@ -31,7 +31,7 @@ from hypothesis import HealthCheck, given, settings
 from hypothesis import strategies as st
 
 from api.socialLogin.socialCallbackUseCase import SocialCallbackUseCase
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.valueObjects.email import Email
 
 # ──── Generators ───────────────────────────────────────────────────────────────

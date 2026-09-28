@@ -14,7 +14,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from api.common.tenant.tenantMembership import TenantMembership
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.user.userRole import UserRole
 
 

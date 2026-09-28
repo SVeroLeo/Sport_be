@@ -35,7 +35,7 @@ from hypothesis import given, settings
 
 from api.socialLogin.socialCallbackUseCase import SocialCallbackUseCase
 from api.auth.tokenPair import TokenPair
-from api.common.user.user import User
+from api.common.user.users import User
 
 # ─── Constants ───────────────────────────────────────────────────────────────
 

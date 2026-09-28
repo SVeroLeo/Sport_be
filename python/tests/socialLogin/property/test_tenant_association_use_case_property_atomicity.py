@@ -36,7 +36,7 @@ from api.socialLogin.tenantAssociationUseCase import TenantAssociationUseCase
 from api.member.member import Member
 from api.common.tenant.tenant import Tenant
 from api.common.tenant.tenantMembership import TenantMembership
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.user.userRole import UserRole
 from api.common.tenant.tenantId import TenantId
 

@@ -33,7 +33,7 @@ from hypothesis import given, settings
 from jwt import PyJWK
 from jwt.algorithms import RSAAlgorithm
 
-from api.common.user.user import User
+from api.common.user.users import User
 from api.common.http.authGuardMiddleware import AuthGuardMiddleware
 
 # ─── Constants ────────────────────────────────────────────────────────────────

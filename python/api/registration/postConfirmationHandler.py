@@ -157,7 +157,7 @@ def _create_user_records(
     """
     from api.member.member import Member
     from api.common.tenant.tenantMembership import TenantMembership
-    from api.common.user.user import User
+    from api.common.user.users import User
     from api.common.user.userRole import UserRole
 
     user_repo, account_type_repo = _get_repositories()

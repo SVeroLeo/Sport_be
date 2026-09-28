@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING
 
 from api.auth.registerInputDto import RegisterInputDTO
@@ -71,11 +72,20 @@ class RegisterUseCase:
                          self-registration is not allowed (Req 3.6).
             ValidationError: If specified account type is invalid (Req 3.8).
         """
-        # 1. Validate value objects (Req 11.1, 11.2, 11.3, 11.4)
+        # 1. Validate value objects (Req 11.1, 11.2, 11.3, 11.4).
+        # The native register flow only collects email + password, so full_name
+        # and tenant_id may be absent: full_name is derived from the email
+        # local-part and tenant_id falls back to the configured default tenant.
         validated_email = Email.create(input_dto.email)
         validated_password = Password.create(input_dto.password)
-        validated_full_name = FullName.create(input_dto.full_name)
-        validated_tenant_id = TenantId.create(input_dto.tenant_id)
+
+        full_name = input_dto.full_name or self._derive_full_name(
+            validated_email.value
+        )
+        validated_full_name = FullName.create(full_name)
+
+        tenant_id = input_dto.tenant_id or self._default_tenant_id()
+        validated_tenant_id = TenantId.create(tenant_id)
 
         # 2. Check email uniqueness in local database (Req 3.3)
         existing_user = self._user_repository.find_by_email(validated_email)
@@ -126,6 +136,51 @@ class RegisterUseCase:
             status="pending_confirmation",
             message="Registration successful. Please verify your email to activate your account.",
         )
+
+    @staticmethod
+    def _derive_full_name(email: str) -> str:
+        """Derive a human-readable full name from an email's local-part.
+
+        Used when the caller does not supply ``full_name`` (native register
+        collects only email + password). The local-part is split on common
+        separators (``.``, ``_``, ``-``, ``+``) and title-cased, e.g.
+        ``jane.doe@x.com`` → ``"Jane Doe"``. Falls back to the whole
+        local-part when it contains no separators.
+
+        Args:
+            email: The validated email address.
+
+        Returns:
+            A non-empty display name suitable for FullName.create().
+        """
+        local_part = email.split("@", 1)[0]
+        for sep in ("_", "-", "+", "."):
+            local_part = local_part.replace(sep, " ")
+        cleaned = " ".join(part for part in local_part.split() if part)
+        return cleaned.title() if cleaned else email
+
+    @staticmethod
+    def _default_tenant_id() -> str:
+        """Resolve the fallback tenant id from the environment.
+
+        Read from ``DEFAULT_TENANT_ID`` so the native register flow (email +
+        password only) can register users into a configured default tenant
+        without exposing a tenant selector.
+
+        Returns:
+            The configured default tenant id.
+
+        Raises:
+            ValidationError: If no default tenant is configured, so the failure
+                is a clear 400 rather than an opaque error.
+        """
+        default = os.environ.get("DEFAULT_TENANT_ID", "").strip()
+        if not default:
+            raise ValidationError(
+                "No tenant specified and no DEFAULT_TENANT_ID configured",
+                field="tenant_id",
+            )
+        return default
 
     async def _resolve_account_type(
         self,
