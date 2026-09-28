@@ -36,6 +36,15 @@ class EnvConfig:
         api_throttle_burst: API Gateway burst capacity.
         waf_rate_limit_per_5min: WAF rate-based rule limit (requests per source
             IP over a 5-minute window) before the IP is temporarily blocked.
+        social_login_enabled: Feature flag gating the social-login infra —
+            the Google/Facebook Cognito Identity Providers, the OAuth Lambda,
+            the `/auth/social` API routes, the Hosted UI domain, and the
+            social Secrets Manager references (`social/google`,
+            `social/facebook`, `social/state`). When False, none of that is
+            synthesized, so the stack can deploy without those secrets
+            existing; the classic email/password login, registration,
+            password-recovery, members, account-types, DynamoDB, WAF and
+            observability are unaffected. Flip to True once the secrets exist.
         social_callback_urls: OAuth `callback_urls` registered on the Cognito
             App Client — the frontend/API destinations Cognito is allowed to
             redirect to after a social login. These are the URLs the Hosted UI
@@ -58,6 +67,7 @@ class EnvConfig:
     api_throttle_rate: int
     api_throttle_burst: int
     waf_rate_limit_per_5min: int
+    social_login_enabled: bool
     social_callback_urls: tuple[str, ...]
     social_logout_urls: tuple[str, ...]
 
@@ -75,6 +85,8 @@ _CONFIGS: dict[str, EnvConfig] = {
         api_throttle_rate=20,
         api_throttle_burst=40,
         waf_rate_limit_per_5min=2000,
+        # Social login is future work — the social/* secrets do not exist yet.
+        social_login_enabled=False,
         social_callback_urls=(
             "https://dev.sport-app.com/auth/social/callback",
         ),
@@ -94,6 +106,8 @@ _CONFIGS: dict[str, EnvConfig] = {
         api_throttle_rate=100,
         api_throttle_burst=200,
         waf_rate_limit_per_5min=10000,
+        # Social login is future work — the social/* secrets do not exist yet.
+        social_login_enabled=False,
         social_callback_urls=(
             "https://sport-app.com/auth/social/callback",
         ),
