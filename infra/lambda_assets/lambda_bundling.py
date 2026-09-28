@@ -1,6 +1,6 @@
 ﻿"""Lambda code bundling for the Python backend.
 
-The application source lives in `<repo>/src` and depends on non-boto packages
+The application source lives in `<repo>/python` and depends on non-boto packages
 (pydantic, PyJWT[crypto]) that are NOT part of the Lambda runtime. We build a
 deployment asset that contains both the source tree and those dependencies,
 targeting the Lambda **Linux x86_64** platform.
@@ -35,10 +35,10 @@ from aws_cdk import (
 )
 from aws_cdk import aws_lambda as lambda_
 
-# <repo>/src and <repo>/infra/lambda-requirements.txt
+# <repo>/python and <repo>/infra/lambda-requirements.txt
 _INFRA_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _REPO_ROOT = os.path.dirname(_INFRA_DIR)
-_SRC_PATH = os.path.join(_REPO_ROOT, "src")
+_SRC_PATH = os.path.join(_REPO_ROOT, "python")
 _LAMBDA_REQUIREMENTS = os.path.join(_INFRA_DIR, "lambda-requirements.txt")
 
 # Lambda runtime target for pip platform-specific downloads.
@@ -48,7 +48,7 @@ _LAMBDA_PYTHON_ABI = "cp312"
 # The command Docker runs to assemble the asset (fallback path).
 _BUNDLE_CMD = (
     "pip install -r /asset-input/infra/lambda-requirements.txt -t /asset-output && "
-    "cp -r /asset-input/src/. /asset-output/"
+    "cp -r /asset-input/python/. /asset-output/"
 )
 
 
@@ -132,7 +132,7 @@ def build_backend_code(runtime: lambda_.Runtime) -> lambda_.Code:
         asset_hash="account-management-backend-v3",
         exclude=[
             "**",
-            "!src/**",
+            "!python/**",
             "!infra/lambda-requirements.txt",
         ],
         bundling=BundlingOptions(

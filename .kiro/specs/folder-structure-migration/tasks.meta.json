@@ -1,0 +1,814 @@
+{
+  "pbtResults": {
+    "2.2 Write property test for camelCase conversion": {
+      "status": "passed",
+      "lastRunTimestamp": 1790602379819
+    },
+    "6.4 Write property test for import-rewrite target uniqueness/diagnosis": {
+      "status": "passed",
+      "lastRunTimestamp": 1790604237781
+    },
+    "6.3 Write property test for content-diff-only": {
+      "status": "passed",
+      "lastRunTimestamp": 1790604266970
+    },
+    "14.2 Write property test for test group preservation": {
+      "status": "passed",
+      "lastRunTimestamp": 1790606186975
+    },
+    "14.3 Write property test for test-file count and one-to-one placement": {
+      "status": "passed",
+      "lastRunTimestamp": 1790606190617
+    },
+    "15.4 Write property test for no stale `src` reference in configuration": {
+      "status": "passed",
+      "lastRunTimestamp": 1790606475078
+    },
+    "16.2 Write property test for post-migration import resolution": {
+      "status": "passed",
+      "lastRunTimestamp": 1790606703268
+    }
+  },
+  "executionHistory": {
+    "1.1 Write a baseline-capture script that records test and type-check baselines": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599122256
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599137459
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602262293
+      }
+    ],
+    "2.1 Implement the Name Converter": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599123383
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599138828
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602263182
+      }
+    ],
+    "2.2 Write property test for camelCase conversion": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599123657
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602269368
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602944822
+      }
+    ],
+    "2.3 Write property test for `__init__.py` preservation": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599123848
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602270742
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602945654
+      }
+    ],
+    "2.4 Write unit tests for concrete name conversions": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599123964
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602271685
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602947047
+      }
+    ],
+    "2.5 Implement the Inventory Scanner and Fan-out Analyzer": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124112
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599139553
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602264249
+      }
+    ],
+    "3.1 Implement the Mapping Builder": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124276
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602272811
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602947704
+      }
+    ],
+    "3.2 Implement Module_Mapping validation (transactional planning boundary)": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124437
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602952734
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603277358
+      }
+    ],
+    "3.3 Write property test for mapping totality": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124539
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602954080
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603278739
+      }
+    ],
+    "3.4 Write property test for destination injectivity": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124665
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602955020
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603281098
+      }
+    ],
+    "3.5 Write property test for source-path uniqueness": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124761
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602955974
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603276453
+      }
+    ],
+    "3.6 Write property test for fan-out placement": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124887
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602957055
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603279692
+      }
+    ],
+    "3.7 Write property test for tenant/user explicit mapping": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599124997
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603281859
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603409808
+      }
+    ],
+    "4. Checkpoint - Tooling and mapping validated": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125107
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607762022
+      }
+    ],
+    "5.1 Create the `python/` tree with package initializers": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125247
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603422708
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603593272
+      }
+    ],
+    "6.1 Implement the File Mover (byte-for-byte moves via recorded manifest)": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125348
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603600489
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604122196
+      }
+    ],
+    "6.2 Implement the Import Rewriter": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125480
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603601199
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604123061
+      }
+    ],
+    "6.3 Write property test for content-diff-only": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125573
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604129865
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604574237
+      }
+    ],
+    "6.4 Write property test for import-rewrite target uniqueness/diagnosis": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125694
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604130768
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604573313
+      }
+    ],
+    "7.1 Move and rewrite tenant, user, and shared value-object code into `python/api/common/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125801
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604131975
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604575252
+      }
+    ],
+    "7.2 Move and rewrite shared errors, config, ports, and HTTP helpers into `python/api/common/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599125903
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604580516
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604781020
+      }
+    ],
+    "8.1 Move and rewrite auth controller, handler, use cases, DTOs, and entities into `python/api/auth/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599126040
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604787082
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605587638
+      }
+    ],
+    "9.1 Move and rewrite registration controller, handlers, and use cases into `python/api/registration/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599126240
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604788128
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605589005
+      }
+    ],
+    "10.1 Move and rewrite member controller, handler, use cases, DTOs, entities, value objects, port, repository, and mapper into `python/api/member/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599126358
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604789341
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605591975
+      }
+    ],
+    "11.1 Move and rewrite accountType controller, handler, use cases, DTOs, entity, value object, port, repository, and mapper into `python/api/accountType/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599126504
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604790752
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605592422
+      }
+    ],
+    "12.1 Move and rewrite oauth controller, handler, composition root, use cases, DTOs, and state token into `python/api/socialLogin/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599126601
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604792145
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605593187
+      }
+    ],
+    "13. Checkpoint - All source migrated and import-coherent": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599126754
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607763270
+      }
+    ],
+    "14.1 Implement and run test reorganization into `python/tests/<feature>/<group>/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599126879
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605598379
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606064347
+      }
+    ],
+    "14.2 Write property test for test group preservation": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127006
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606070354
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606213797
+      }
+    ],
+    "14.3 Write property test for test-file count and one-to-one placement": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127141
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606071241
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606214643
+      }
+    ],
+    "15.1 Update `pyproject.toml` to the `python/` layout": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127276
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606072674
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606210144
+      }
+    ],
+    "15.2 Update CDK `infra/stacks/app_stack.py` handler paths and code-asset source": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127389
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606073569
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606211444
+      }
+    ],
+    "15.3 Update `infra/lambda_assets/lambda_bundling.py` to bundle `python/`": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127487
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606074782
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606212394
+      }
+    ],
+    "15.4 Write property test for no stale `src` reference in configuration": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127626
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606223233
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606497238
+      }
+    ],
+    "15.5 Write unit tests for config scan and Handler_Path resolution": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127724
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606222399
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606496307
+      }
+    ],
+    "16.1 Run the import-resolution sweep": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127853
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606221156
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606498304
+      }
+    ],
+    "16.2 Write property test for post-migration import resolution": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599127969
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606504489
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607747427
+      }
+    ],
+    "16.3 Write property test for Handler_Path callable resolution": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599128113
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606505410
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607748357
+      }
+    ],
+    "16.4 Run mypy and pytest, compare to baselines, and drive the correction loop": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599128206
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606507732
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607749755
+      }
+    ],
+    "16.5 Validate the target-layout document against the actual `python/` tree": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599128331
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606506802
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607751097
+      }
+    ],
+    "17. Final checkpoint - Ensure all tests pass": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790599128457
+      },
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607764131
+      }
+    ],
+    "1. Capture pre-migration baselines": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602262425
+      }
+    ],
+    "2. Build the migration tooling core (pure functions)": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790602947146
+      }
+    ],
+    "3. Build and validate the Module_Mapping": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603409953
+      }
+    ],
+    "5. Create the target `python/` package skeleton": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790603593442
+      }
+    ],
+    "6. Implement the File Mover and Import Rewriter": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604574346
+      }
+    ],
+    "7. Migrate Common_Module code (features depend on it, so move it first)": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790604781200
+      }
+    ],
+    "8. Migrate the `auth` feature": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605587831
+      }
+    ],
+    "9. Migrate the `registration` feature": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605589116
+      }
+    ],
+    "10. Migrate the `member` feature": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605592112
+      }
+    ],
+    "11. Migrate the `accountType` feature": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605592547
+      }
+    ],
+    "12. Migrate the `socialLogin` feature": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790605593294
+      }
+    ],
+    "14. Reorganize the Test_Suite": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606214742
+      }
+    ],
+    "15. Update configuration and deployment wiring": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790606497329
+      }
+    ],
+    "16. Verification against baselines": [
+      {
+        "executionId": "935d9553-d961-4549-8529-1f31c5515e97",
+        "chatSessionId": "sess_b11a4324-7192-40ad-af61-e07f8d491b6b",
+        "timestamp": 1790607751198
+      }
+    ]
+  }
+}

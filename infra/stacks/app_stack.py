@@ -5,7 +5,7 @@ Provisions the full backend for one environment:
 - Cognito User Pool + app client (RS256 tokens; ASF is a multi-region concern,
   tracked separately).
 - Four Lambda functions (auth, registration, account types, members) packaged
-  from the existing `src/` tree, each running the corresponding handler.
+  from the existing `python/` tree, each running the corresponding handler.
 - A REST API Gateway wiring the documented routes, plus a public GET /health
   used later by Route 53 health checks (multi-region spec).
 
@@ -106,20 +106,20 @@ class AccountManagementStack(Stack):
 
         # One Lambda per handler module, mirroring the existing entry points.
         auth_fn = self._build_lambda(
-            "AuthFn", "interfaces.http.handlers.auth_handler.handler", common_env
+            "AuthFn", "api.auth.authHandler.handler", common_env
         )
         registration_fn = self._build_lambda(
             "RegistrationFn",
-            "interfaces.http.handlers.registration_handler.handler",
+            "api.registration.registrationHandler.handler",
             common_env,
         )
         account_type_fn = self._build_lambda(
             "AccountTypeFn",
-            "interfaces.http.handlers.account_type_handler.handler",
+            "api.accountType.accountTypeHandler.handler",
             common_env,
         )
         member_fn = self._build_lambda(
-            "MemberFn", "interfaces.http.handlers.member_handler.handler", common_env
+            "MemberFn", "api.member.memberHandler.handler", common_env
         )
 
         # Grant DynamoDB access (table + indexes) to every function.
@@ -166,7 +166,7 @@ class AccountManagementStack(Stack):
         }
         post_confirmation_fn = self._build_lambda(
             "PostConfirmationFn",
-            "interfaces.http.handlers.post_confirmation_handler.handler",
+            "api.registration.postConfirmationHandler.handler",
             post_confirmation_env,
         )
         table.grant_read_write_data(post_confirmation_fn)
@@ -213,7 +213,7 @@ class AccountManagementStack(Stack):
         }
         oauth_fn = self._build_lambda(
             "OAuthHandlerFn",
-            "interfaces.http.handlers.oauth_handler.handler",
+            "api.socialLogin.oauthHandler.handler",
             oauth_env,
         )
         # DynamoDB access (provisioning users/members/memberships/roles).
@@ -488,11 +488,11 @@ class AccountManagementStack(Stack):
     def _build_lambda(
         self, construct_id: str, handler: str, environment: dict[str, str]
     ) -> lambda_.Function:
-        """Create a Lambda function from the src/ tree for the given handler.
+        """Create a Lambda function from the python/ tree for the given handler.
 
         Args:
             construct_id: Unique construct id within the stack.
-            handler: Dotted handler path (module.function) relative to src/.
+            handler: Dotted handler path (module.function) relative to python/.
             environment: Environment variables to inject.
 
         Returns:
