@@ -17,6 +17,11 @@ from aws_cdk.assertions import Match, Template
 
 from config import get_env_config
 
+# Social login is gated behind a config flag (default off until the social/*
+# secrets exist). The social-only snapshot tests below are skipped while the
+# flag is off, since a social-disabled synth intentionally omits that infra.
+_SOCIAL_ENABLED = get_env_config("dev").social_login_enabled
+
 
 def _synth_template(env_name: str) -> Template:
     """Synthesize the stack for an environment and return its Template.
@@ -91,11 +96,11 @@ def test_five_python_lambdas(dev_template: Template) -> None:
     # (A log-retention helper Lambda may also exist depending on CDK internals,
     # so assert on the app functions via their handlers instead of a exact count.)
     for handler in (
-        "interfaces.http.handlers.auth_handler.handler",
-        "interfaces.http.handlers.registration_handler.handler",
-        "interfaces.http.handlers.account_type_handler.handler",
-        "interfaces.http.handlers.member_handler.handler",
-        "interfaces.http.handlers.post_confirmation_handler.handler",
+        "api.auth.authHandler.handler",
+        "api.registration.registrationHandler.handler",
+        "api.accountType.accountTypeHandler.handler",
+        "api.member.memberHandler.handler",
+        "api.registration.postConfirmationHandler.handler",
     ):
         dev_template.has_resource_properties(
             "AWS::Lambda::Function",
@@ -107,7 +112,7 @@ def test_lambdas_have_token_allowlist_env(dev_template: Template) -> None:
     dev_template.has_resource_properties(
         "AWS::Lambda::Function",
         {
-            "Handler": "interfaces.http.handlers.auth_handler.handler",
+            "Handler": "api.auth.authHandler.handler",
             "Environment": {
                 "Variables": Match.object_like(
                     {
@@ -230,9 +235,12 @@ def test_sns_alarm_topic(dev_template: Template) -> None:
 
 
 def test_alarms_exist_and_notify_topic(dev_template: Template) -> None:
-    # 6 lambdas x 2 (errors+throttles) + api 5xx + api latency + ddb user + ddb system = 16
-    # (6 lambdas = 4 API handlers + post-confirmation trigger + OAuth handler.)
-    dev_template.resource_count_is("AWS::CloudWatch::Alarm", 16)
+    # lambdas x 2 (errors+throttles) + api 5xx + api latency + ddb user + ddb system.
+    # With social ENABLED there are 6 lambdas (4 API handlers + post-confirmation
+    # trigger + OAuth handler): 6x2 + 4 = 16. With social DISABLED there are 5
+    # lambdas (no OAuth handler): 5x2 + 4 = 14.
+    expected = 16 if _SOCIAL_ENABLED else 14
+    dev_template.resource_count_is("AWS::CloudWatch::Alarm", expected)
 
 
 # ── Social login (CDK snapshot tests) ──────────────────────────────────────
@@ -245,6 +253,7 @@ def test_alarms_exist_and_notify_topic(dev_template: Template) -> None:
 # exclusively as Secrets Manager dynamic references.
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_social_identity_provider_google(dev_template: Template) -> None:
     # Google IDP synthesizes to AWS::Cognito::UserPoolIdentityProvider with
     # ProviderType="Google" (Requirement 1.1).
@@ -254,6 +263,7 @@ def test_social_identity_provider_google(dev_template: Template) -> None:
     )
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_social_identity_provider_facebook(dev_template: Template) -> None:
     # Facebook IDP synthesizes to AWS::Cognito::UserPoolIdentityProvider with
     # ProviderType="Facebook" (Requirement 1.2).
@@ -263,29 +273,32 @@ def test_social_identity_provider_facebook(dev_template: Template) -> None:
     )
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_exactly_two_identity_providers(dev_template: Template) -> None:
     # Precisely one Google + one Facebook provider — no more, no fewer.
     dev_template.resource_count_is("AWS::Cognito::UserPoolIdentityProvider", 2)
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_oauth_handler_lambda_present(dev_template: Template) -> None:
     # OAuthHandlerFn serves the /auth/social/* routes (task 17.3).
     dev_template.has_resource_properties(
         "AWS::Lambda::Function",
         {
-            "Handler": "interfaces.http.handlers.oauth_handler.handler",
+            "Handler": "api.socialLogin.oauthHandler.handler",
             "Runtime": "python3.12",
         },
     )
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_oauth_handler_has_social_env(dev_template: Template) -> None:
     # The OAuth Lambda carries the social-specific environment surface: the
     # Hosted UI domain, the OAuth callback URL, and the HMAC state secret.
     dev_template.has_resource_properties(
         "AWS::Lambda::Function",
         {
-            "Handler": "interfaces.http.handlers.oauth_handler.handler",
+            "Handler": "api.socialLogin.oauthHandler.handler",
             "Environment": {
                 "Variables": Match.object_like(
                     {
@@ -299,6 +312,7 @@ def test_oauth_handler_has_social_env(dev_template: Template) -> None:
     )
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_social_api_routes_present(dev_template: Template) -> None:
     # The /auth/social/{proxy+} routes are registered on the API. The greedy
     # proxy resource lets the single OAuth Lambda route every social sub-path
@@ -312,17 +326,20 @@ def test_social_api_routes_present(dev_template: Template) -> None:
 def test_waf_association_covers_social_routes(dev_template: Template) -> None:
     # WAF is associated at the API *stage* level (a single WebACLAssociation),
     # so the /auth/social/* routes are protected by the same WAF as every other
-    # endpoint via this one association (Requirement 8.3). We assert exactly one
-    # association exists and that the social path parts are part of the API.
+    # endpoint via this one association (Requirement 8.3). The single-association
+    # assertion holds regardless of the social flag; the social path-part
+    # assertions only apply when social login is enabled.
     dev_template.resource_count_is("AWS::WAFv2::WebACLAssociation", 1)
-    dev_template.has_resource_properties(
-        "AWS::ApiGateway::Resource", {"PathPart": "social"}
-    )
-    dev_template.has_resource_properties(
-        "AWS::ApiGateway::Resource", {"PathPart": "{proxy+}"}
-    )
+    if _SOCIAL_ENABLED:
+        dev_template.has_resource_properties(
+            "AWS::ApiGateway::Resource", {"PathPart": "social"}
+        )
+        dev_template.has_resource_properties(
+            "AWS::ApiGateway::Resource", {"PathPart": "{proxy+}"}
+        )
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_no_plaintext_social_credentials_in_template(dev_template: Template) -> None:
     # Requirement 8.7: no secret material may appear in the synthesized
     # template. The Google/Facebook client_secret and the SOCIAL_STATE_SECRET
@@ -339,6 +356,7 @@ def test_no_plaintext_social_credentials_in_template(dev_template: Template) -> 
     assert "social/facebook:SecretString:client_secret" in template_json
 
 
+@pytest.mark.skipif(not _SOCIAL_ENABLED, reason="social login disabled")
 def test_oauth_state_secret_is_dynamic_reference(dev_template: Template) -> None:
     # The OAuthHandlerFn SOCIAL_STATE_SECRET env value must resolve from Secrets
     # Manager at runtime, not be a plaintext literal in the template. The value
@@ -350,7 +368,7 @@ def test_oauth_state_secret_is_dynamic_reference(dev_template: Template) -> None
         props["Properties"]["Environment"]["Variables"]["SOCIAL_STATE_SECRET"]
         for props in functions.values()
         if props["Properties"].get("Handler")
-        == "interfaces.http.handlers.oauth_handler.handler"
+        == "api.socialLogin.oauthHandler.handler"
     ]
     assert len(oauth_env_values) == 1
     assert "resolve:secretsmanager" in str(oauth_env_values[0])
